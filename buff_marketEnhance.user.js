@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         网易BUFF市场插件---CSGO版
+// @name         网易BUFF市场增强
 // @namespace    http://pronax.wtf/
 // @version      2021-1-6 17:31:47
-// @description  try to take over the world! --Written by Pronax
+// @description  为CSGO板块写的，其他板块可能会因为样式原因报错，不影响使用
 // @copyright    2020, Pronax
 // @author       Pronax
 // @license      MIT
