@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         网易BUFF价格比例(找挂刀)插件
 // @namespace    http://pronax.wtf/
-// @version      2021-1-6 17:32:56
+// @version      2021-1-22 17:10:40
 // @description  try to take over the world! --Written by Pronax
 // @copyright    2020, Pronax
 // @author       Pronax
@@ -10,6 +10,9 @@
 // @match        https://buff.163.com/market/?game=csgo*
 // @match        https://buff.163.com/market/?game=dota2*
 // @grant        GM_addStyle
+// @grant        GM_xmlhttpRequest
+// @grant        GM_setValue
+// @grant        GM_getValue
 // ==/UserScript==
 
 (function () {
@@ -82,6 +85,34 @@
             f = (f - min_range) / (1 - min_range);
         }
         return max >= min ? f * (max - min) + min : (1 - f) * (min - max) + max;
+    }
+
+    function getItemId() {
+        return new Promise(function (resolve, reject) {
+            let buff_item_id = getUrlParam("goods_id");
+            let steam_item_id = GM_getValue(buff_item_id);
+            if ((!steam_item_id) || steam_item_id == buff_item_id) {
+                GM_xmlhttpRequest({
+                    url: document.getElementsByClassName("detail-summ")[0].lastElementChild.href,
+                    method: "get",
+                    onload: function (res) {
+                        if (res.status == 200) {
+                            let html = res.response;
+                            let start = html.indexOf("Market_LoadOrderSpread( ") + 24;
+                            let end = html.indexOf(" );	// initial load");
+                            steam_item_id = html.slice(start, end);
+                            GM_setValue(buff_item_id, steam_item_id);
+                            resolve(steam_item_id);
+                        }
+                    },
+                    onerror: function (err) {
+                        reject(err);
+                    }
+                });
+            } else {
+                resolve(steam_item_id);
+            }
+        });
     }
 
     function getUrlParam(name) {
@@ -205,7 +236,28 @@
     }
 
     if (location.pathname === "/market/goods") {
+        GM_addStyle(".market_commodity_orders_header_promote {color: whitesmoke;}#steam_order{margin-top:5px}");
         buff_csgo_goods_scale_plugin_load();
+        getItemId().then(function onFulfilled(value) {
+            GM_xmlhttpRequest({
+                url: window.location.protocol + "//steamcommunity.com/market/itemordershistogram?country=CN&language=schinese&currency=23&item_nameid=" + value + "&two_factor=0",
+                method: "get",
+                onload: function (res) {
+                    if (res.status == 200) {
+                        let js = JSON.parse(res.response);
+                        $(".detail-cont").append("<div id='steam_order'>" + js.buy_order_summary + "</div>");
+                    } else {
+                        console.log("访问steamorder列表出错");
+                        console.log(res);
+                    }
+                },
+                onerror: function (err) {
+                    console.log(err);
+                }
+            });
+        }).catch(function onRejected(error) {
+            console.log('错误：' + error);
+        });
         setTimeout(function () {
             $(document).ajaxSuccess(function (event, status, header, result) {
                 if (header.url.slice(0, 28) === "/api/market/goods/sell_order") {
