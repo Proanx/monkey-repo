@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         网易BUFF价格比例(找挂刀)插件
 // @namespace    http://pronax.wtf/
-// @version      2021-1-22 17:10:40
+// @version      2021-1-22 23:22:11
 // @description  try to take over the world! --Written by Pronax
 // @copyright    2020, Pronax
 // @author       Pronax
@@ -54,7 +54,7 @@
     }
 
     // 保留2位小数
-    function roundToTwo(num, status) {
+    function roundToTwo(num, status) { // status不为false时四舍五入
         return status ? Math.round((num * 100) + 0.5) / 100 : Math.round((num * 100)) / 100;
     }
 
@@ -91,7 +91,7 @@
         return new Promise(function (resolve, reject) {
             let buff_item_id = getUrlParam("goods_id");
             let steam_item_id = GM_getValue(buff_item_id);
-            if ((!steam_item_id) || steam_item_id == buff_item_id) {
+            if ((!steam_item_id) || steam_item_id.length > 20 || steam_item_id == buff_item_id) {
                 GM_xmlhttpRequest({
                     url: document.getElementsByClassName("detail-summ")[0].lastElementChild.href,
                     method: "get",
@@ -100,9 +100,14 @@
                             let html = res.response;
                             let start = html.indexOf("Market_LoadOrderSpread( ") + 24;
                             let end = html.indexOf(" );	// initial load");
+                            if (start == 24 || end == -1) {
+                                reject("物品不在货架");
+                            }
                             steam_item_id = html.slice(start, end);
                             GM_setValue(buff_item_id, steam_item_id);
                             resolve(steam_item_id);
+                        } else {
+                            reject(res);
                         }
                     },
                     onerror: function (err) {
@@ -166,8 +171,31 @@
                 }
                 if ($(".good_scale").length == 0) {
                     $(price_list[isLogined ? 1 : 0]).append($("<big class='good_scale' style='color: " + color + ";margin-left: 6px'>" + scale + "</big>"));
+                    getItemId().then(function onFulfilled(itemId) {
+                        GM_xmlhttpRequest({
+                            url: window.location.protocol + "//steamcommunity.com/market/itemordershistogram?country=CN&language=schinese&currency=23&item_nameid=" + itemId + "&two_factor=0",
+                            method: "get",
+                            onload: function (res) {
+                                if (res.status == 200) {
+                                    let js = JSON.parse(res.response);
+                                    $(".detail-cont").append("<div id='steam_order'>" + js.buy_order_summary + "</div>");
+                                    window.market_listing_price_with_fee = js.buy_order_graph[0][0];
+                                    $(".market_commodity_orders_header_promote:last").after("<small class='market_listing_price_with_fee'>" + roundToTwo(seller_price / (window.market_listing_price_with_fee / 1.15), true) + "</small>");
+                                } else {
+                                    console.log("访问steamorder列表出错：", res);
+                                }
+                            },
+                            onerror: function (err) {
+                                console.log("访问steamorder列表出错：", err);
+                            }
+                        });
+                    }).catch(function onRejected(error) {
+                        console.log('获取itemID错误：', error);
+                    });
                 } else {
                     $(".good_scale").text(scale).css("color", color);
+                    console.log("变了");
+                    $(".market_listing_price_with_fee").text(roundToTwo(seller_price / (window.market_listing_price_with_fee / 1.15), true));
                 }
 
                 // 色阶部分 --------------------------------------------------------------------------------------- end
@@ -236,28 +264,9 @@
     }
 
     if (location.pathname === "/market/goods") {
-        GM_addStyle(".market_commodity_orders_header_promote {color: whitesmoke;}#steam_order{margin-top:5px}");
+        GM_addStyle(".market_commodity_orders_header_promote {color: whitesmoke;}#steam_order{margin-top:5px}.market_listing_price_with_fee{color: #9c6c0d;font-size: 12px;margin-left: 6px;}");
         buff_csgo_goods_scale_plugin_load();
-        getItemId().then(function onFulfilled(value) {
-            GM_xmlhttpRequest({
-                url: window.location.protocol + "//steamcommunity.com/market/itemordershistogram?country=CN&language=schinese&currency=23&item_nameid=" + value + "&two_factor=0",
-                method: "get",
-                onload: function (res) {
-                    if (res.status == 200) {
-                        let js = JSON.parse(res.response);
-                        $(".detail-cont").append("<div id='steam_order'>" + js.buy_order_summary + "</div>");
-                    } else {
-                        console.log("访问steamorder列表出错");
-                        console.log(res);
-                    }
-                },
-                onerror: function (err) {
-                    console.log(err);
-                }
-            });
-        }).catch(function onRejected(error) {
-            console.log('错误：' + error);
-        });
+
         setTimeout(function () {
             $(document).ajaxSuccess(function (event, status, header, result) {
                 if (header.url.slice(0, 28) === "/api/market/goods/sell_order") {
