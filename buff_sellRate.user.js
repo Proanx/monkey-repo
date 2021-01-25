@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         网易BUFF价格比例(找挂刀)插件
 // @namespace    http://pronax.wtf/
-// @version      2021-1-24 22:38:11
+// @version      2021-1-25 11:24:44
 // @description  你的挂刀得力助手，有问题反馈可以直接发邮件给我（funkyturkey@yeah.net）在greasy上发issue也可以，不过可能响应比较慢
 // @copyright    2020, Pronax
 // @author       Pronax
@@ -41,6 +41,7 @@
     const alertColor = Array(0, 255, 72);
     const backgroundColor = Array(69, 83, 108);
     const steanOrderScaleTemp = "<span class=\"f_12px f_Bold l_Right\" style=\"margin-top: inherit;opacity: 0.8;\"></span>";
+    const steanOrderCountTemp = "<span class=\"f_12px c_Gray f_Bold l_Right\" style=\"margin-top: inherit;opacity: 0.8;\"></span>";
 
     function getUrlParam(name, url) {
         var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)"); //构造一个含有目标参数的正则表达式对象
@@ -151,7 +152,7 @@
                             let start = html.indexOf("Market_LoadOrderSpread( ") + 24;
                             let end = html.indexOf(" );	// initial load");
                             if (start == 24 || end == -1) {
-                                reject("物品不在货架");
+                                reject({ status: 404, statusText: "物品不在货架上" });
                             }
                             steam_item_id = html.slice(start, end);
                             GM_setValue(buff_item_id, steam_item_id);
@@ -181,6 +182,7 @@
                             resolve(JSON.parse(res.response));
                         } else {
                             console.log("访问steamorder列表出错：", res);
+                            reject(res);
                         }
                     },
                     onerror: function (err) {
@@ -229,6 +231,8 @@
                         $(".detail-cont").append("<div id='steam_order'>" + json.buy_order_summary + "</div>");
                         window.market_listing_price_with_fee = json.highest_buy_order / 100;
                         $(".market_commodity_orders_header_promote:last").after("<small class='market_listing_price_with_fee'>" + getScale(seller_price, window.market_listing_price_with_fee, true) + "</small>");
+                    }).catch(function onRejected(err) {
+                        $(".detail-cont").append("<div id='steam_order'>" + err.statusText + "</div>");
                     });
                 } else {
                     $(".good_scale").text(scale).css("color", color);
@@ -240,7 +244,7 @@
         $("#market-selling-list").addClass("calculated");
     }
 
-    // 列表
+    // 市场目录
     window.buff_csgo_list_scale_plugin_load = function () {
         // 检测商品是否加载完成
         if ($("#j_list_card>ul>li").length == 0) {
@@ -262,13 +266,19 @@
                 success: function (data) {
                     status--;
                     let steam_price = $(data).find(".detail-summ .f_Strong>span.custom-currency")[0].getAttribute('data-price');
+                    let withoutFeePrice = getWithoutFeePrice(steam_price, true);
                     let scale = getScale(buff_price, steam_price, true);
                     $(goods[i]).attr("data-sort", scale);
+                    $(target).append($("<span class=\"f_12px f_Bold c_Gray\"></span>").css("margin-left", "5px").text(withoutFeePrice));
                     paintingGradient(scale, target, 3);
                     let steam_link = $(data).find(".detail-summ>a")[0].href;
                     getSteamOrderList(steam_link, url).then(function onFulfilled(json) {
+                        let orderCount = $(json.buy_order_summary)[0].innerText;
                         let steamOrderScale = getScale(buff_price, (json.highest_buy_order / 100), true);
+                        $(target).after($(steanOrderCountTemp).text(orderCount + "┊"));
                         paintingGradient(steamOrderScale, target, 4, steanOrderScaleTemp);
+                    }).catch(function onRejected(err) {
+                        $(target).after($(steanOrderCountTemp).text(err.statusText));
                     });
                     if (needSort) {
                         sortGoods(sortType);
@@ -310,14 +320,12 @@
         // 排序按钮
         $(".block-header>.l_Right").append($('<div id="sort_scale"><span>比例<i class="icon icon_order"></i></span></div>'));
         $("#sort_scale").click(function () {
-            let btn = this;
             let flag = $(this).hasClass("w-Order_asc");
             if ($(this).hasClass("enabled")) {
                 $(this).toggleClass("w-Order_asc w-Order_des");
             } else {
                 $(this).addClass("enabled").addClass("w-Order_asc");
             }
-
             $("#j_list_card>ul>li").sort(function (a, b) {
                 let av = $(a).attr("data-sort") - 0;
                 let bv = $(b).attr("data-sort") - 0;
