@@ -278,12 +278,15 @@
                         $(target).after($(steanOrderCountTemp).text(orderCount + "┊"));
                         paintingGradient(steamOrderScale, target, 4, steanOrderScaleTemp);
                     }).catch(function onRejected(err) {
+                        if (err.status == 429) {
+                            err.statusText = "请求次数过多";
+                        }
                         $(target).after($(steanOrderCountTemp).text(err.statusText));
                     });
-                    if (needSort) {
-                        sortGoods(sortType);
-                    }
                     if (status == 0) {
+                        if (needSort) {
+                            sortGoods(sortType);
+                        }
                         $("#sort_scale").addClass("enabled").addClass(sortType ? "w-Order_asc" : "w-Order_des");
                         shade($("#sort_scale"), "background", alertColor, backgroundColor, 1000);
                     }
