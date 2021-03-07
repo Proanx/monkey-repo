@@ -24,4 +24,4 @@
 
 如果你喜欢这个插件或者喜欢我本人，可以在这里打赏↓
 
-![donate 打赏](https://gitee.com/pronax/self-use-oil-warehouse/raw/master/donate.png)
+<img src="https://gitee.com/pronax/self-use-oil-warehouse/raw/master/donate.png"  height="350" width="350">
