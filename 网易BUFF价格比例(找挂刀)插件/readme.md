@@ -19,3 +19,9 @@
    ![介绍2 介绍2](https://gitee.com/pronax/self-use-oil-warehouse/raw/master/%E7%BD%91%E6%98%93BUFF%E4%BB%B7%E6%A0%BC%E6%AF%94%E4%BE%8B(%E6%89%BE%E6%8C%82%E5%88%80)%E6%8F%92%E4%BB%B6/%E4%BB%8B%E7%BB%8D2.png)
 3. ### 你可以自定义一些参数  
    ![参数 参数](https://gitee.com/pronax/self-use-oil-warehouse/raw/master/%E7%BD%91%E6%98%93BUFF%E4%BB%B7%E6%A0%BC%E6%AF%94%E4%BE%8B(%E6%89%BE%E6%8C%82%E5%88%80)%E6%8F%92%E4%BB%B6/%E4%BB%8B%E7%BB%8D3.png)
+
+---
+
+如果你喜欢这个插件或者喜欢我本人，可以在这里打赏↓
+
+![donate 打赏](https://gitee.com/pronax/self-use-oil-warehouse/raw/master/donate.png)
