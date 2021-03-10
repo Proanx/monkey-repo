@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam市场 价格/比例/汇率 换算器
 // @namespace    http://pronax.wtf/
-// @version      0.3.16
+// @version      0.3.17
 // @description  try to take over the world!
 // @author       Pronax
 // @include      *://steamcommunity.com/market/*
@@ -16,20 +16,38 @@
 (function () {
     'use strict';
 
+    var ratesUpdateApi = "https://v6.exchangerate-api.com/v6/6c4647edadf8a30d48167bab/latest/CNY";
+    var ratesUpdateTimes = 0;
+
+    function getUrlParam(name, url) {
+        var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)"); //构造一个含有目标参数的正则表达式对象
+        var result
+        if (url) {
+            result = url.substr(34).match(reg);  //匹配目标参数
+        } else {
+            result = window.location.search.substr(1).match(reg);  //匹配目标参数
+        }
+        if (result != null) return unescape(result[2]); return null; //返回参数值
+    }
+
     function updateRate() {
         GM_xmlhttpRequest({
-            url: "https://v6.exchangerate-api.com/v6/6c4647edadf8a30d48167bab/latest/CNY",
+            url: ratesUpdateApi,
             method: "get",
             onload: function (response) {
                 var data = JSON.parse(response.responseText);
                 if (data.result == "success") {
                     data.conversion_rates.time_next_update_unix = data.time_next_update_unix;
+                    data.conversion_rates.time_update_unix = new Date().getTime();
                     exchangeRateList = data.conversion_rates;
                     GM_setValue("time_next_update_unix", data.time_next_update_unix);
                     GM_setValue("exchangeRateList", data.conversion_rates);
-                    console.log("已同步最新汇率");
+                } else if (data["error-type"] == "quota-reached" && ratesUpdateTimes <= 1) {
+                    ratesUpdateTimes++;
+                    ratesUpdateApi = "https://v6.exchangerate-api.com/v6/f87873f2dcc5ba5c076737e1/latest/CNY";
+                    updateRate();
                 } else {
-                    console.log("更新汇率时出错：", data.error - type);
+                    console.log("更新汇率时出错：", data["error-type"]);
                 }
             },
             onerror: function (err) {
@@ -52,6 +70,7 @@
     } else {
         updateRate();
     }
+    console.log("已同步最新汇率，时间戳：" + exchangeRateList.time_update_unix);
 
     GM_addStyle(
         ".price_tool_input{width:4.9rem;height:1rem;font-size:small!important;border:1px solid transparent!important}.price_tool_div{position:fixed;border-radius:.3rem;padding:.05rem .3rem .25rem;right:.6rem;top:35%;background-color:#53a3C399;text-align:center}.price_tool_input_div{margin:.2rem 0}.price_tool_rate_chose{height:1.4rem;border-radius:0;border:0;display:inline-block;background-color:#171a2185;cursor:pointer;color:#d2d2d2;text-align-last:center}.price_tool_rate_div{margin-top:1px}.price_tool_rate_input{height:.9rem;width:4.5rem;border:0!important}.price_tool_input_btn{display:inline-block;line-height:1.65rem;background-color:#eaeaea33;cursor:pointer;padding:0 12px;width:1.8rem;color:#d2d2d2}.price_tool_disabled{background-color:#0009}.price_tool_input_btn_toggle{display:inline-block;border:1px transparent;padding:0 .2rem;cursor:pointer;color:#d2e885;line-height:1.5rem}.price_tool_checkbox{display:none}.price_tool_pagebtn{padding:0 10px;color:#f9f9f9;background-color:#f5f5f53b;width:.8rem}"
@@ -62,10 +81,14 @@
 
     var demo_price_tool =
         "<div class='price_tool_div market_listing_filter_contents'><form onsubmit='return false' id='price_tool_form'><div class='price_tool_input_div'><label class='price_tool_input_btn price_tool_disabled' for='real_price'><b>成本</b></label><input class='price_tool_checkbox' type='checkbox' name='lock' value='1' checked><input type='number' step='0.01' min='0' class='price_tool_input filter_search_box' name='real_price' id='real_price' placeholder='现实价格'/></div><div class='price_tool_input_div'><label class='price_tool_input_btn' for='scale'><b>比例</b></label><input class='price_tool_checkbox' type='checkbox' name='lock' value='2'><input type='number' step='0.01' min='0' max='1' checked class='price_tool_input filter_search_box' name='scale' id='scale' placeholder='价格比例'/></div><div class='price_tool_input_div'><label class='price_tool_input_btn price_tool_disabled' for='money_receive'><b>收款</b></label><input class='price_tool_checkbox' type='checkbox' name='lock' value='3' checked><input type='number' step='0.01' min='0' class='price_tool_input filter_search_box' name='money_receive' id='money_receive' placeholder='收到的钱'/></div><div class='price_tool_input_div'><label class='price_tool_input_btn price_tool_disabled' for='money_pays'><b>付款</b></label><input type='number' step='0.01' min='0' class='price_tool_input filter_search_box' name='money_pays' id='money_pays' placeholder='支付价格'/></div></form>"
-        + "<form id='price_tool_rate_form' onsubmit='return false'><div class='price_tool_rate_div'><select class='price_tool_rate_chose' name='currency_origin'><option value='ARS'>阿根廷</option><option value='AUD'>澳元</option><option value='BRL'>巴西</option><option value='RUB'>俄罗斯</option><option value='PHP'>菲律宾</option><option value='HKD'>港币</option><option value='KRW'>韩国</option><option value='CAD'>加拿大</option><option value='USD'>美元</option><option value='EUR'>欧元</option><option value='JPY'>日元</option><option value='THB'>泰铢</option><option value='TRY'>土耳其</option><option value='SGD'>新加坡</option><option value='TWD'>新台币</option><option value='INR'>印度</option><option value='IDR'>印尼</option><option value='GBP'>英镑</option><option value='SGD'>越南盾</option></select><input type='number' min='0' class='price_tool_rate_input filter_search_box' name='rate_origin' placeholder='输入数额' /></div><div class='price_tool_rate_div'><select class='price_tool_rate_chose' name='currency_result' style='cursor: default;' disabled><option value='CNY' selected>人民币</option></select><input type='number' min='0' class='price_tool_rate_input filter_search_box' name='rate_result' placeholder='输入数额' /></div></form>"
+        + "<form id='price_tool_rate_form' onsubmit='return false'><div class='price_tool_rate_div'><select class='price_tool_rate_chose' name='currency_origin'><option value='ARS'>阿根廷</option><option value='AUD'>澳元</option><option value='BRL'>巴西</option><option value='RUB'>俄罗斯</option><option value='PHP'>菲律宾</option><option value='HKD'>港币</option><option value='KRW'>韩国</option><option value='CAD'>加拿大</option><option value='USD'>美元</option><option value='EUR'>欧元</option><option value='JPY'>日元</option><option value='THB'>泰铢</option><option value='TRY'>土耳其</option><option value='SGD'>新加坡</option><option value='TWD'>新台币</option><option value='NZD'>新西兰</option><option value='INR'>印度</option><option value='IDR'>印尼</option><option value='GBP'>英镑</option><option value='SGD'>越南盾</option></select><input type='number' min='0' class='price_tool_rate_input filter_search_box' name='rate_origin' placeholder='输入数额' /></div><div class='price_tool_rate_div'><select class='price_tool_rate_chose' name='currency_result' style='cursor: default;' disabled><option value='CNY' selected>人民币</option></select><input type='number' min='0' class='price_tool_rate_input filter_search_box' name='rate_result' placeholder='输入数额' /></div></form>"
         + "<div style='margin-top: 0.3rem;'><span class='pagebtn price_tool_pagebtn' onclick='document.getElementById(\"searchResults_btn_prev\").click()'>&lt;</span><span class='price_tool_input_btn_toggle' data-status='false'><b>切换为买家</b></span><span class='pagebtn price_tool_pagebtn' onclick='document.getElementById(\"searchResults_btn_next\").click()'>&gt;</span></div></div>";
 
     document.getElementById("BG_bottom").insertAdjacentHTML("beforeEnd", demo_price_tool);
+    let rateChose = GM_getValue("rate_chose");
+    if (rateChose) {
+        document.getElementsByClassName("price_tool_rate_chose")[0].value = rateChose;
+    }
 
     $(".price_tool_rate_input").keyup(function () {
         var form = $("#price_tool_rate_form")[0];
@@ -74,11 +97,18 @@
             form.rate_result.value = roundToTwo(form.rate_origin.value / exchangeRateList[targ.value]);
         } else {
             form.rate_origin.value = roundToTwo(form.rate_result.value * exchangeRateList[targ.value]);
+            $("#real_price").val(form.rate_origin.value).trigger("keyup");
         }
 
     });
 
+    let buffPrice = getUrlParam("buffPrice");
+    if (buffPrice) {
+        let rmb = $(".price_tool_rate_input")[1];
+        $(rmb).val(buffPrice).trigger("keyup");
+    }
     $(".price_tool_rate_chose").change(function () {
+        GM_setValue("rate_chose", this.value);
         $(this.siblings()[0]).trigger("keyup");
     });
 
@@ -172,7 +202,7 @@
         }
     }
 
-    real_price.onchange = function () {
+    real_price.onkeyup = function () {
         let checkArr = [];
         for (let j = 0; j < checkbox.length; j++) {
             checkArr.push(checkbox[j].checked);
@@ -205,7 +235,7 @@
         }
     }
 
-    scale.onchange = function () {
+    scale.onkeyup = function () {
         GM_setValue("price_tool_scale", this.value);
         let checkArr = [];
         for (let j = 0; j < checkbox.length; j++) {
@@ -250,7 +280,7 @@
 
     }
 
-    money_receive.onchange = function () {
+    money_receive.onkeyup = function () {
         let checkArr = [];
         for (let j = 0; j < checkbox.length; j++) {
             checkArr.push(checkbox[j].checked);
@@ -276,7 +306,7 @@
         }
     }
 
-    money_pays.onchange = function () {
+    money_pays.onkeyup = function () {
         let checkArr = [];
         for (let j = 0; j < checkbox.length; j++) {
             checkArr.push(checkbox[j].checked);

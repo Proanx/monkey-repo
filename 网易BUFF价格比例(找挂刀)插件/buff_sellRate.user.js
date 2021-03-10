@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         网易BUFF价格比例(找挂刀)插件
 // @namespace    http://pronax.wtf/
-// @version      2021-1-25 11:24:44
+// @version      2021-3-10 14:06:18
 // @description  你的挂刀得力助手，有问题反馈可以直接发邮件给我（funkyturkey@yeah.net）在greasy上发issue也可以，不过可能响应比较慢
 // @copyright    2020, Pronax
 // @author       Pronax
@@ -212,9 +212,10 @@
         }
         let basic_price = getWithoutFeePrice(steam_price, true);
         for (let i = isLogined ? 2 : 1; i < price_list.length; i++) {
-            let seller_price = price_list[i].innerText.slice(1);
+            let seller_price = price_list[i].innerText.slice(2);
             let scale = roundToTwo(seller_price / basic_price);
             if (i == (isLogined ? 2 : 1)) {
+                $(".detail-summ>a").prop("href", $(".detail-summ>a").prop("href") + "?buffPrice=" + seller_price);
                 $(".f_Strong .hide-usd")[0].innerText = basic_price;
                 let color;
                 switch (true) {
