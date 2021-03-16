@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         网易BUFF市场增强
+// @name         网易BUFF市场增强--CSGO版
 // @namespace    http://pronax.wtf/
 // @version      2021-1-6 17:31:47
 // @description  为CSGO板块写的，其他板块可能会因为样式原因报错，不影响使用

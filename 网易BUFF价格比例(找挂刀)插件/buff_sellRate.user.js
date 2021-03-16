@@ -142,7 +142,6 @@
             let buff_item_id = getUrlParam("goods_id", url);
             let steam_item_id = GM_getValue(buff_item_id);
             if ((!steam_item_id) || steam_item_id.length > 20 || steam_item_id == buff_item_id) {
-                console.log("itemID未知");
                 GM_xmlhttpRequest({
                     url: steamLink,
                     method: "get",
