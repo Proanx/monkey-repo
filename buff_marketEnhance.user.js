@@ -1,43 +1,63 @@
 // ==UserScript==
-// @name         网易BUFF市场增强--CSGO版
-// @namespace    http://pronax.wtf/
-// @version      2021-1-6 17:31:47
-// @description  为CSGO板块写的，其他板块可能会因为样式原因报错，不影响使用
-// @copyright    2020, Pronax
-// @author       Pronax
-// @license      MIT
-// @match        https://buff.163.com/market/goods*
-// @grant        GM_addStyle
+// @name            网易BUFF市场CSGO板块增强
+// @namespace       https://greasyfork.org/zh-CN/users/412840-newell-gabe-l
+// @version         1.4.4
+// @note            更新于2021年3月24日12:35:57
+// @description     非CSGO板块可能会因为样式原因报错，不影响使用。问题反馈QQ群544144372
+// @supportURL      https://jq.qq.com/?_wv=1027&k=U8mqorxQ
+// @copyright       2021, Pronax
+// @author          Pronax
+// @license         AGPL-3.0
+// @match           https://buff.163.com/market/goods*
+// @run-at          document-body
+// @grant           GM_addStyle
 // ==/UserScript==
 
 (function () {
     'use strict';
 
-    const en_list = Array("Type |Gloves", "Type |Machineguns", "Type |Shotguns", "Type |SMGs", "Type |Rifles", "Type |Pistols", "Type |Knives");
-    const zh_list = Array("类型 |手套", "类型 |机枪", "类型 |霰弹枪", "类型 |微型冲锋枪", "类型 |步枪", "类型 |手枪", "类型 |匕首");
+    const support_list = Array("rifle", "knife", "pistol", "smg", "machinegun", "shotgun", "hands");
 
     GM_addStyle(".list_tb_csgo .pic-cont{width:112px;height:84px}.list_tb_csgo .pic-cont img{height:-webkit-fill-available;max-height:max-content;}.csgo_sticker.has_wear .stickers{width:auto;height:2.2rem}.csgo_sticker{float:right;margin-right:1rem}");
 
-    // 添加下一页标签
-    $(".floatbar>ul").prepend("<li><a id='buff_tool_nextpage'><i class='icon icon_comment_arr' style='transform: rotate(90deg); width: 1.125rem; height: 1.125rem; left: 0.25rem; position: relative;'></i><p style='color:#fff;'>下一页</p></a></li>");
-    // 设定下一页按钮的点击事件
-    $("#buff_tool_nextpage").click(function () {
-        $(".page-link.next").click();
-    }).parent().css("cursor", "pointer");
-
-    window.buff_csgo_buff_plugin_load = function (abx) {
-        // 检测商品是否加载完成
-        if ($("#market-selling-list").length == 0) {
-            setTimeout(buff_csgo_buff_plugin_load, 100);
+    function addNextPageBtn() {
+        if ($(".floatbar>ul").length == 0) {
+            setTimeout(() => { addNextPageBtn(); }, 100);
             return;
         }
-        // 防止插件重复加载
+        if ($("#buff_tool_nextpage").length != 0) { return; }
+        // 下一页按钮
+        $(".floatbar>ul").prepend("<li><a id='buff_tool_nextpage'><i class='icon icon_comment_arr' style='transform: rotate(90deg); width: 1.125rem; height: 1.125rem; left: 0.25rem; position: relative;'></i><p style='color:#fff;'>下一页</p></a></li>");
+        $("#buff_tool_nextpage").click(function () {
+            $(".page-link.next").click();
+            $("#sort_scale").removeClass();
+        }).parent().css("cursor", "pointer");
+    }
+
+    function getUrlParam(name, url) {
+        var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)"); //构造一个含有目标参数的正则表达式对象
+        let result;
+        if (url) {
+            result = url.substr(34).match(reg);  //匹配目标参数
+        } else {
+            result = window.location.search.substr(1).match(reg);  //匹配目标参数
+        }
+        if (result != null) return unescape(result[2]); return null; //返回参数值
+    }
+
+    addNextPageBtn();
+
+    window.buff_enhancement_csgo = function (data) {
+        // 检测商品是否加载完成
+        if ($("#market-selling-list").length == 0) {
+            setTimeout(buff_enhancement_csgo, 100);
+            return;
+        }
         if ($("#market-selling-list").hasClass("buffed")) { return; }
         // 排除不支持的商品类型
-        let goods_type = $(".detail-cont>p>span")[2].innerText;
+        let goods_type = data.goods_infos[getUrlParam("goods_id")].tags.category_group.internal_name;
         let isEn = $("#j_lang-switcher").data("current") === "en";
-        let type_list = isEn ? en_list : zh_list;
-        if (type_list.indexOf(goods_type) < 0) {
+        if (support_list.indexOf(goods_type) < 0) {
             return;
         }
         // 整体CSS
@@ -64,20 +84,15 @@
             // 拿到每个饰品的图片对象
             let skin = $(mom).find(".item-detail-img")[0];
             // 判断饰品是否属于CSGO区
-            if ($(skin).data("appid") != 730) {
-                return;
-            }
+            if ($(skin).data("appid") != 730) { return; }
             // 获取饰品对应的信息并加载进data
             let classid = $(skin).data("classid");
             let instanceid = $(skin).data("instanceid");
-            let steamid = $(skin).data("steamid");
-            let appid = $(skin).data("appid");
             let sell_order_id = $(skin).data("orderid");
             let origin = $(skin).data("origin");
-            let hide_refresh_sticker = $(skin).hasClass("hide-refresh-sticker");
             let assetid = $(skin).data("assetid");
             let data = {
-                appid: appid,
+                appid: 730,
                 game: "csgo",
                 classid: classid,
                 instanceid: instanceid,
@@ -118,33 +133,19 @@
                     if (rank) {
                         $(targ_seed).html(targ_seed.innerHTML + "<i style='color:green'>（#" + rank.innerText.split(" ")[isEn ? 3 : 1] + "）</i>");
                     }
-                    /*                     // 获取贴纸对象，无贴纸则直接返回
-                    let sticker = $(result).find(".sticker-name>div>div>span");
-                    if (sticker.length <= 0) {
-                        return;
-                    }
-                    // 获取待添加磨损的贴纸对象
-                    let targ_sticker = $(mom).find(".csgo_sticker>.stickers");
-                    // 遍历插入磨损
-                    for (let i = 0; i < sticker.length; i++) {
-                        $(targ_sticker[i]).append($("<div class='wear-value'>" + sticker[i].innerText.split(" ")[1] + "</div>"));
-                    } */
                 },
                 error: function (msg) {
-                    console.log("error");
+                    console.log("error:", msg);
                 }
             });
         }
         $("#market-selling-list").addClass("buffed");
     };
 
-    buff_csgo_buff_plugin_load();
-    setTimeout(function () {
-        $(document).ajaxSuccess(function (event, status, header, result) {
-            if (header.url.slice(0, 28) === "/api/market/goods/sell_order") {
-                buff_csgo_buff_plugin_load();
-            }
-        });
-    }, 3000);
+    $(document).ajaxSuccess(function (event, status, header, result) {
+        if (header.url.slice(0, 28) === "/api/market/goods/sell_order") {
+            buff_enhancement_csgo(result.data);
+        }
+    });
 
 })();
