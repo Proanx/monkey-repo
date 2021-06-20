@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam市场 价格/比例/汇率 换算器
 // @namespace    http://pronax.wtf/
-// @version      0.3.18
+// @version      0.3.20
 // @description  try to take over the world!
 // @author       Pronax
 // @include      *://steamcommunity.com/market/*
@@ -60,6 +60,23 @@
         return Math.round((num * 100)) / 100;
     }
 
+    function formatPrice(originPrice, currencyData) {
+        if (!currencyData) {
+            currencyData = g_rgCurrencyData[$("#price_tool_rate_form")[0].currency_origin.value];
+        }
+        originPrice = originPrice.replace(/[^0-9,\.]/g, "");
+        if (originPrice.indexOf(",") >= 0 || originPrice.split(".").length > 2) {
+            originPrice = originPrice.replaceAll(currencyData.strThousandsSeparator, "");
+            if (currencyData.strDecimalSymbol == ",") {
+                originPrice = originPrice.replaceAll(currencyData.strDecimalSymbol, ".");
+            }
+            while (originPrice.split(".").length > 2) {
+                originPrice = originPrice.replace(".", "");
+            }
+        }
+        return originPrice;
+    }
+
     var exchangeRateList = GM_getValue("exchangeRateList");
     let timestamp = GM_getValue("time_next_update_unix");
 
@@ -80,24 +97,26 @@
     );
 
     var demo_price_tool =
-        "<div class='price_tool_div market_listing_filter_contents'><form onsubmit='return false' id='price_tool_form'><div class='price_tool_input_div'><label class='price_tool_input_btn price_tool_disabled' for='real_price'><b>成本</b></label><input class='price_tool_checkbox' type='checkbox' name='lock' value='1' checked><input type='number' step='0.01' min='0' class='price_tool_input filter_search_box' name='real_price' id='real_price' placeholder='现实价格'/></div><div class='price_tool_input_div'><label class='price_tool_input_btn' for='scale'><b>比例</b></label><input class='price_tool_checkbox' type='checkbox' name='lock' value='2'><input type='number' step='0.01' min='0' max='1' checked class='price_tool_input filter_search_box' name='scale' id='scale' placeholder='价格比例'/></div><div class='price_tool_input_div'><label class='price_tool_input_btn price_tool_disabled' for='money_receive'><b>收款</b></label><input class='price_tool_checkbox' type='checkbox' name='lock' value='3' checked><input type='number' step='0.01' min='0' class='price_tool_input filter_search_box' name='money_receive' id='money_receive' placeholder='收到的钱'/></div><div class='price_tool_input_div'><label class='price_tool_input_btn price_tool_disabled' for='money_pays'><b>付款</b></label><input type='number' step='0.01' min='0' class='price_tool_input filter_search_box' name='money_pays' id='money_pays' placeholder='支付价格'/></div></form><form id='price_tool_rate_form' onsubmit='return false'><div class='price_tool_rate_div'><select class='price_tool_rate_chose' name='currency_origin'><option value='ARS'>阿根廷</option><option value='AUD'>澳元</option><option value='BRL'>巴西</option><option value='RUB'>俄罗斯</option><option value='PHP'>菲律宾</option><option value='HKD'>港币</option><option value='KRW'>韩国</option><option value='CAD'>加拿大</option><option value='USD'>美元</option><option value='EUR'>欧元</option><option value='CNY'>人民币</option><option value='JPY'>日元</option><option value='THB'>泰铢</option><option value='TRY'>土耳其</option><option value='SGD'>新加坡</option><option value='TWD'>新台币</option><option value='NZD'>新西兰</option><option value='INR'>印度</option><option value='IDR'>印尼</option><option value='GBP'>英镑</option><option value='SGD'>越南盾</option></select><input type='number' min='0' class='price_tool_rate_input filter_search_box' name='rate_origin' placeholder='输入数额' /></div><div class='price_tool_rate_div'><select class='price_tool_rate_chose' name='currency_result' style='cursor: default;' disabled><option value='CNY' selected>人民币</option></select><input type='number' min='0' class='price_tool_rate_input filter_search_box' name='rate_result' placeholder='输入数额' /></div></form><div style='margin-top: 0.3rem;'><span class='pagebtn price_tool_pagebtn' onclick='document.getElementById(\"searchResults_btn_prev\").click()'>&lt;</span><span class='price_tool_input_btn_toggle' data-status='false'><b>切换为买家</b></span><span class='pagebtn price_tool_pagebtn' onclick='document.getElementById(\"searchResults_btn_next\").click()'>&gt;</span></div></div>";
+        "<div class='price_tool_div market_listing_filter_contents'><form onsubmit='return false' id='price_tool_form'><div class='price_tool_input_div'><label class='price_tool_input_btn price_tool_disabled' for='real_price'><b>成本</b></label><input class='price_tool_checkbox' type='checkbox' name='lock' value='1' checked><input type='text' step='0.01' min='0' class='price_tool_input filter_search_box' name='real_price' id='real_price' placeholder='现实价格'/></div><div class='price_tool_input_div'><label class='price_tool_input_btn' for='scale'><b>比例</b></label><input class='price_tool_checkbox' type='checkbox' name='lock' value='2'><input type='number' step='0.01' min='0' max='1' checked class='price_tool_input filter_search_box' name='scale' id='scale' placeholder='价格比例'/></div><div class='price_tool_input_div'><label class='price_tool_input_btn price_tool_disabled' for='money_receive'><b>收款</b></label><input class='price_tool_checkbox' type='checkbox' name='lock' value='3' checked><input type='text' class='price_tool_input filter_search_box' name='money_receive' id='money_receive' placeholder='收到的钱'/></div><div class='price_tool_input_div'><label class='price_tool_input_btn price_tool_disabled' for='money_pays'><b>付款</b></label><input type='text' class='price_tool_input filter_search_box' name='money_pays' id='money_pays' placeholder='支付价格'/></div></form><form id='price_tool_rate_form' onsubmit='return false'><div class='price_tool_rate_div'><select class='price_tool_rate_chose' name='currency_origin'><option value='ARS'>阿根廷</option><option value='AUD'>澳元</option><option value='BRL'>巴西</option><option value='RUB'>俄罗斯</option><option value='PHP'>菲律宾</option><option value='HKD'>港币</option><option value='KRW'>韩国</option><option value='CAD'>加拿大</option><option value='USD'>美元</option><option value='EUR'>欧元</option><option value='CNY'>人民币</option><option value='JPY'>日元</option><option value='THB'>泰铢</option><option value='TRY'>土耳其</option><option value='SGD'>新加坡</option><option value='TWD'>新台币</option><option value='NZD'>新西兰</option><option value='INR'>印度</option><option value='IDR'>印尼</option><option value='GBP'>英镑</option><option value='SGD'>越南盾</option></select><input type='text' min='0' class='price_tool_rate_input filter_search_box' name='rate_origin' placeholder='输入数额' /></div><div class='price_tool_rate_div'><select class='price_tool_rate_chose' name='currency_result' style='cursor: default;' disabled><option value='CNY' selected>人民币</option></select><input type='text' min='0' class='price_tool_rate_input filter_search_box' name='rate_result' placeholder='输入数额' /></div></form><div style='margin-top: 0.3rem;'><span class='pagebtn price_tool_pagebtn' onclick='document.getElementById(\"searchResults_btn_prev\").click()'>&lt;</span><span class='price_tool_input_btn_toggle' data-status='false'><b>切换为买家</b></span><span class='pagebtn price_tool_pagebtn' onclick='document.getElementById(\"searchResults_btn_next\").click()'>&gt;</span></div></div>";
 
     document.getElementById("BG_bottom").insertAdjacentHTML("beforeEnd", demo_price_tool);
-    let rateChose = GM_getValue("rate_chose");
+    var rateChose = GM_getValue("rate_chose");
     if (rateChose) {
         document.getElementsByClassName("price_tool_rate_chose")[0].value = rateChose;
     }
 
     $(".price_tool_rate_input").keyup(function () {
-        var form = $("#price_tool_rate_form")[0];
-        var targ = form.currency_origin;
+        let form = $("#price_tool_rate_form")[0];
+        let targ = form.currency_origin;
+        // let currencyData = g_rgCurrencyData[$(this).siblings("select").val()];
+        // let currencyData = g_rgCurrencyData[targ.value];
+        this.value = formatPrice(this.value);
         if (this.name == "rate_origin") {
-            form.rate_result.value = roundToTwo(form.rate_origin.value / exchangeRateList[targ.value]);
+            form.rate_result.value = roundToTwo(this.value / exchangeRateList[targ.value]);
         } else {
-            form.rate_origin.value = roundToTwo(form.rate_result.value * exchangeRateList[targ.value]);
+            form.rate_origin.value = roundToTwo(this.value * exchangeRateList[targ.value]);
             $("#real_price").val(form.rate_origin.value).trigger("keyup");
         }
-
     });
 
     let buffPrice = getUrlParam("buffPrice");
@@ -164,20 +183,16 @@
     var real_price = document.getElementById("real_price");
     var scale = document.getElementById("scale");
 
-    var saved_scale = GM_getValue("price_tool_scale");
-    if (saved_scale != null) {
-        scale.value = saved_scale;
-    }
+    // var saved_scale = GM_getValue("price_tool_scale");
+    // if (saved_scale != null) {
+    //     scale.value = saved_scale;
+    // }
     var money_receive = document.getElementById("money_receive");
     var money_pays = document.getElementById("money_pays");
 
     var toggle_div = document.getElementsByClassName("price_tool_input_div")[2];
 
     var tool_targ = document.getElementsByClassName("price_tool_div")[0];
-
-    tool_targ.onselectstart = function () {
-        return false;
-    }
 
     toggle_btn.onclick = function () {
         if (toggle_btn.dataset.status == "false") {
@@ -205,7 +220,7 @@
         for (let j = 0; j < checkbox.length; j++) {
             checkArr.push(checkbox[j].checked);
         }
-
+        this.value = formatPrice(this.value);
         if (toggle_btn.dataset.status == "false") {
             if (checkArr[1]) {
                 if (checkArr[2]) {
@@ -234,11 +249,12 @@
     }
 
     scale.onkeyup = function () {
-        GM_setValue("price_tool_scale", this.value);
+        // GM_setValue("price_tool_scale", this.value);
         let checkArr = [];
         for (let j = 0; j < checkbox.length; j++) {
             checkArr.push(checkbox[j].checked);
         }
+
         if (toggle_btn.dataset.status == "false") {
             if (checkArr[0]) {
                 if (checkArr[2]) {
@@ -283,7 +299,7 @@
         for (let j = 0; j < checkbox.length; j++) {
             checkArr.push(checkbox[j].checked);
         }
-
+        this.value = formatPrice(this.value);
         if (toggle_btn.dataset.status == "false") {
             money_pays.value = Math.round(this.value * 115) / 100;
             if (checkArr[1]) {
@@ -309,7 +325,7 @@
         for (let j = 0; j < checkbox.length; j++) {
             checkArr.push(checkbox[j].checked);
         }
-
+        this.value = formatPrice(this.value);
         if (toggle_btn.dataset.status == "false") {
             money_receive.value = (Math.round(this.value / 0.0115) + 1) / 100;
             if (checkArr[1]) {
