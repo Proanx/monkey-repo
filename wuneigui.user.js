@@ -1,14 +1,13 @@
 // ==UserScript==
 // @name         微博无内鬼图片处理+拉黑内鬼
 // @namespace    http://pronax.tech/
-// @version      2021-8-15 16:40:02
+// @version      2021-8-17 13:40:29
 // @description  try to take over the world!
 // @author       You
 // @match        https://weibo.com/3176010690/*
 // @require      http://code.jquery.com/jquery-1.11.0.min.js
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
-// @grant        unsafeWindow
 // ==/UserScript==
 
 // 原图地址
@@ -22,27 +21,42 @@
 	'use strict';
 
 	GM_addStyle(".WB_frame{width:1200px !important}.WB_frame_c{width:1200px}");
-	GM_addStyle(".iconoGraph{max-width:200px}");
+	GM_addStyle(".iconoGraph{max-width:150px;max-height:300px}.wng_img{max-width:300px;max-height:500px}");
+	GM_addStyle(".W_loading{margin:5px}");
 
-	var real_ng_list = ["2671562317", "5334141065", "1945987267", "7563836395", "2680672033", "5304894067", "7415309425", "6345843055", "7226822845", "5831076343", "5928929014", "7570487236", "5234287588", "5763947689", "6259812513", "6367090201", "7330956181", "3606572233", "7315063626", "7307948916", "6545355034", "2619054701", "2179108717", "5837773588", "5936018672", "5840135182", "5028156161", "6480626845", "2487754642", "6017668207", "5750663305", "5241389666", "5686627491", "7482359873", "5764580212", "5190907726", "7510503735", "6008273099", "2839650043", "5615937987", "5934070814", "6592810151", "5634370977", "6041633157"];
+	var real_ng_list = ["2671562317", "6857211922", "5334141065", "1945987267", "7563836395", "2680672033", "5304894067", "7415309425", "6345843055", "7226822845", "5831076343", "5928929014", "7570487236", "5234287588", "5763947689", "6259812513", "6367090201", "7330956181", "3606572233", "7315063626", "7307948916", "6545355034", "2619054701", "2179108717", "5837773588", "5936018672", "5840135182", "5028156161", "6480626845", "2487754642", "6017668207", "5750663305", "5241389666", "5686627491", "7482359873", "5764580212", "5190907726", "7510503735", "6008273099", "2839650043", "5615937987", "5934070814", "6592810151", "5634370977", "6041633157"];
 
-	unsafeWindow.getPhoto = (targ, photoId) => {
-		let url = $(targ).attr("alt");
+	function getPhoto(targ, photoId) {
+		if (photoId) {
+			$(targ).before(`<a href="https://wx4.sinaimg.cn/mw1024/${photoId}" target="_blank"><img class="wng_img" src="https://wx4.sinaimg.cn/mw1024/${photoId}"></img>`);
+		}
+		var url = $(targ).attr("alt") || $(targ).attr("href");
 		GM_xmlhttpRequest({
 			url: url,
 			method: "get",
 			onload: function (res) {
 				if (res && res.status == 200) {
-					let src = res.response.match(/src="(.*)">/)[1];
-					if (photoId) {
-						$(targ).before(`<a href="https://wx4.sinaimg.cn/mw1024/${photoId}" target="_blank"><img class="wng_img iconoGraph" src="https://wx4.sinaimg.cn/mw1024/${photoId}"></img>`);
-						$(targ).after("<a style='cursor: pointer;' onclick='catchNeigui(this)'>建议击毙</a>");
+					var src = "";
+					try {
+						src = res.response.match(/src="(.*)">/)[1];
+					} catch (error) {
+						console.log(res);
+						$(targ).attr("title", url).text(url);
+						return;
 					}
-					$(targ).before(`<a href="${src}" target="_blank"><img class="wng_img " src="${src}"></img>`);
-					$(targ).remove();
+					$(targ).before(`<a href="${src}" target="_blank"><img class="iconoGraph" src="${src}"></img>`);
 				} else {
 					console.log("状态错误", res);
 				}
+				let a = $("<a style='cursor: pointer;'>建议击毙</a>").click(function () {
+					let ng_target = this.parentNode;
+					let target_id = $(ng_target.children[0]).attr("usercard").slice(3);
+					real_ng_list.push(target_id);
+					copyText("," + '"' + target_id + '"');
+					$(this).parents(".list_li.S_line1:first").remove();
+				});
+				$(targ).after(a);
+				$(targ).remove();
 			},
 			onerror: function (err) {
 				console.log("错误", err);
@@ -50,8 +64,8 @@
 		});
 	}
 
-	unsafeWindow.noNeigui = function () {
-		let ng_list = $(".WB_text");
+	function noNeigui() {
+		let ng_list = $(".WB_text:has(a[usercard])");
 		for (let i = 1; i < ng_list.length; i++) {
 			let ng = $(ng_list[i].children[0]).attr("usercard");
 			if (ng != undefined) {
@@ -63,27 +77,20 @@
 				}
 			}
 		}
-		var wng = $(".ficon_cd_img");
+		let wng = $(".ficon_cd_img");
 		for (let i = 0; i < wng.length; i++) {
 			let targ = $(wng[i]).parent()[0];
-			let img_data = $(targ).attr("action-data");
-			let photoId = img_data.match(/pid=(.*?)&/)[1];
-			$(targ).before(`<a href="https://wx4.sinaimg.cn/mw1024/${photoId}" target="_blank"><img class="wng_img iconoGraph" src="https://wx4.sinaimg.cn/mw1024/${photoId}"></img>`);
-			$(targ).after("<a style='cursor: pointer;' onclick='catchNeigui(this)'>建议击毙</a>");
-			getPhoto(targ);
+			let photoId = $(targ).attr("action-data").match(/pid=(.*?)&/)[1];
+			getPhoto(targ, photoId);
+		}
+		wng = $("a[title='网页链接']");
+		for (let i = 0; i < wng.length; i++) {
+			getPhoto(wng[i]);
 		}
 	}
 
-	unsafeWindow.catchNeigui = function (me) {
-		var ng_target = me.parentNode;
-		var target_id = $(ng_target.children[0]).attr("usercard").slice(3);
-		real_ng_list.push(target_id);
-		copyText("," + '"' + target_id + '"');
-		$(me).parents(".list_li.S_line1:first").remove();
-	}
-
-	unsafeWindow.copyText = function (text, callback) { // text: 要复制的内容， callback: 回调
-		var tag = document.createElement('input');
+	function copyText(text, callback) { // text: 要复制的内容， callback: 回调
+		let tag = document.createElement('input');
 		tag.setAttribute('id', 'cp_hgz_input');
 		tag.value = text;
 		document.getElementsByTagName('body')[0].appendChild(tag);
@@ -93,22 +100,39 @@
 		if (callback) { callback(text) }
 	}
 
+	var json;
 	function init() {
-		var timeout;
+		let timeout;
 		if ($("#plc_main").length == 0) {
 			timeout = setTimeout(init, 300);
 			return;
 		}
 		clearTimeout(timeout);
+
 		$("#plc_main").bind('mousedown', function (event) {
 			if (event.button == 3 || event.button == 4) {
-				let common_parent = $(event.target).parents(".list_li.S_line1.clearfix:last");
-				if (common_parent.attr("node-type") == "root_comment") {
-					let a = $(common_parent[0]).find(".list_li_v2 a");
-					if (a.length > 0) {
-						a[0].click();
+				let comment_parent = $(event.target).parents(".list_li.S_line1.clearfix:last");
+				$(comment_parent).find(".list_li_v2>div").append('<i class="W_loading"></i>');
+				GM_xmlhttpRequest({
+					url: "https://weibo.com/aj/v6/comment/big?ajwvr=6&from=singleWeiBo&" + $(comment_parent).find(".list_li_v2 a").attr("action-data"),
+					method: "get",
+					onload: function (res) {
+						if (res && res.status == 200) {
+							json = JSON.parse(res.response);
+							if (json.code == "100000") {
+								$(comment_parent).find(".list_li_v2").before(json.data.html).remove();
+								$(comment_parent).find(".between_line").remove();
+							}
+						} else {
+							console.log("加载下一页失败：", res);
+							alert("加载下一页失败");
+						}
+					},
+					onerror: function (err) {
+						console.log("加载下一页错误", err);
+						alert("加载下一页错误");
 					}
-				}
+				});
 				noNeigui();
 			}
 		});
