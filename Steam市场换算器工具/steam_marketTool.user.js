@@ -2,7 +2,7 @@
 // @name         Steam市场 价格/比例/汇率 换算器
 // @namespace    http://pronax.wtf/
 // @version      0.3.22
-// @description  try to take over the world!
+// @description  见安装页面介绍
 // @author       Pronax
 // @include      *://steamcommunity.com/market/*
 // @require      https://code.jquery.com/jquery-1.12.4.min.js
