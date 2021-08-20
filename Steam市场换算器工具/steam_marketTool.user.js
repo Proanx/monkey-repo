@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam市场 价格/比例/汇率 换算器
 // @namespace    http://pronax.wtf/
-// @version      0.3.21
+// @version      0.3.22
 // @description  try to take over the world!
 // @author       Pronax
 // @include      *://steamcommunity.com/market/*
@@ -42,6 +42,7 @@
                     exchangeRateList = data.conversion_rates;
                     GM_setValue("time_next_update_unix", data.time_next_update_unix);
                     GM_setValue("exchangeRateList", data.conversion_rates);
+                    console.log("已同步最新汇率，时间戳：" + exchangeRateList.time_update_unix);
                 } else if (data["error-type"] == "quota-reached" && ratesUpdateTimes <= 1) {
                     ratesUpdateTimes++;
                     ratesUpdateApi = "https://v6.exchangerate-api.com/v6/f87873f2dcc5ba5c076737e1/latest/CNY";
@@ -87,7 +88,6 @@
     } else {
         updateRate();
     }
-    console.log("已同步最新汇率，时间戳：" + exchangeRateList.time_update_unix);
 
     GM_addStyle(
         ".price_tool_input{width:4.9rem;height:1rem;font-size:small!important;border:1px solid transparent!important}.price_tool_div{position:fixed;border-radius:.3rem;padding:.05rem .3rem .25rem;right:.6rem;top:35%;background-color:#53a3C399;text-align:center}.price_tool_input_div{margin:.2rem 0}.price_tool_rate_chose{height:1.4rem;border-radius:0;border:0;display:inline-block;background-color:#171a2185;cursor:pointer;color:#d2d2d2;text-align-last:center}.price_tool_rate_div{margin-top:1px}.price_tool_rate_input{height:.9rem;width:4.5rem;border:0!important}.price_tool_input_btn{display:inline-block;line-height:1.65rem;background-color:#eaeaea33;cursor:pointer;padding:0 12px;width:1.8rem;color:#d2d2d2}.price_tool_disabled{background-color:#0009}.price_tool_input_btn_toggle{display:inline-block;border:1px transparent;padding:0 .2rem;cursor:pointer;color:#d2e885;line-height:1.5rem}.price_tool_checkbox{display:none}.price_tool_pagebtn{padding:0 10px;color:#f9f9f9;background-color:#f5f5f53b;width:.8rem}"
