@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         Steam市场 价格/比例/汇率 换算器
 // @namespace    http://pronax.wtf/
-// @version      0.3.22
+// @version      0.4.1
 // @description  见安装页面介绍
 // @author       Pronax
 // @include      *://steamcommunity.com/market/*
 // @require      https://code.jquery.com/jquery-1.12.4.min.js
-// @connect      v6.exchangerate-api.com
+// @connect      esapi.isthereanydeal.com
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @grant        GM_getValue
@@ -15,9 +15,6 @@
 
 (function () {
     'use strict';
-
-    var ratesUpdateApi = "https://v6.exchangerate-api.com/v6/6c4647edadf8a30d48167bab/latest/CNY";
-    var ratesUpdateTimes = 0;
 
     function getUrlParam(name, url) {
         var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)"); //构造一个含有目标参数的正则表达式对象
@@ -28,33 +25,6 @@
             result = window.location.search.substr(1).match(reg);  //匹配目标参数
         }
         if (result != null) return unescape(result[2]); return null; //返回参数值
-    }
-
-    function updateRate() {
-        GM_xmlhttpRequest({
-            url: ratesUpdateApi,
-            method: "get",
-            onload: function (response) {
-                var data = JSON.parse(response.responseText);
-                if (data.result == "success") {
-                    data.conversion_rates.time_next_update_unix = data.time_next_update_unix;
-                    data.conversion_rates.time_update_unix = new Date().getTime();
-                    exchangeRateList = data.conversion_rates;
-                    GM_setValue("time_next_update_unix", data.time_next_update_unix);
-                    GM_setValue("exchangeRateList", data.conversion_rates);
-                    console.log("已同步最新汇率，时间戳：" + exchangeRateList.time_update_unix);
-                } else if (data["error-type"] == "quota-reached" && ratesUpdateTimes <= 1) {
-                    ratesUpdateTimes++;
-                    ratesUpdateApi = "https://v6.exchangerate-api.com/v6/f87873f2dcc5ba5c076737e1/latest/CNY";
-                    updateRate();
-                } else {
-                    console.log("更新汇率时出错：", data["error-type"]);
-                }
-            },
-            onerror: function (err) {
-                console.log("更新汇率时出错：", err);
-            }
-        });
     }
 
     function roundToTwo(num) {
@@ -78,16 +48,35 @@
         return originPrice;
     }
 
-    var exchangeRateList = GM_getValue("exchangeRateList");
-    let timestamp = GM_getValue("time_next_update_unix");
-
-    if (exchangeRateList && timestamp) {
-        if (Math.round(new Date().getTime() / 1000) >= timestamp) {
-            updateRate();
+    function updateRate(force) {
+        if ((!force) && exchangeRateList && exchangeRateList.CNY.CNY && exchangeRateList.time_next_update_unix > new Date().getTime()) {
+            return;
         }
-    } else {
-        updateRate();
+        GM_xmlhttpRequest({
+            url: "https://esapi.isthereanydeal.com/v01/rates/?to=CNY",
+            method: "get",
+            onload: function (response) {
+                let data = JSON.parse(response.responseText);
+                console.log(data);
+                if (data.result == "success") {
+                    let timeUnix = new Date().getTime();
+                    data.data.time_next_update_unix = timeUnix + 10800000;
+                    data.data.time_update_unix = timeUnix;
+                    exchangeRateList = data.data;
+                    GM_setValue("exchangeRateList", exchangeRateList);
+                } else {
+                    console.log("更新汇率时出错：", data["error_description"]);
+                }
+            },
+            onerror: function (err) {
+                console.log("更新汇率失败：", err);
+            }
+        });
     }
+
+    var exchangeRateList = GM_getValue("exchangeRateList");
+
+    updateRate();
 
     GM_addStyle(
         ".price_tool_input{width:4.9rem;height:1rem;font-size:small!important;border:1px solid transparent!important}.price_tool_div{position:fixed;border-radius:.3rem;padding:.05rem .3rem .25rem;right:.6rem;top:35%;background-color:#53a3C399;text-align:center}.price_tool_input_div{margin:.2rem 0}.price_tool_rate_chose{height:1.4rem;border-radius:0;border:0;display:inline-block;background-color:#171a2185;cursor:pointer;color:#d2d2d2;text-align-last:center}.price_tool_rate_div{margin-top:1px}.price_tool_rate_input{height:.9rem;width:4.5rem;border:0!important}.price_tool_input_btn{display:inline-block;line-height:1.65rem;background-color:#eaeaea33;cursor:pointer;padding:0 12px;width:1.8rem;color:#d2d2d2}.price_tool_disabled{background-color:#0009}.price_tool_input_btn_toggle{display:inline-block;border:1px transparent;padding:0 .2rem;cursor:pointer;color:#d2e885;line-height:1.5rem}.price_tool_checkbox{display:none}.price_tool_pagebtn{padding:0 10px;color:#f9f9f9;background-color:#f5f5f53b;width:.8rem}"
@@ -108,13 +97,11 @@
     $(".price_tool_rate_input").keyup(function () {
         let form = $("#price_tool_rate_form")[0];
         let targ = form.currency_origin;
-        // let currencyData = g_rgCurrencyData[$(this).siblings("select").val()];
-        // let currencyData = g_rgCurrencyData[targ.value];
         this.value = formatPrice(this.value);
         if (this.name == "rate_origin") {
-            form.rate_result.value = roundToTwo(this.value / exchangeRateList[targ.value]);
+            form.rate_result.value = roundToTwo(this.value / exchangeRateList[targ.value].CNY);
         } else {
-            form.rate_origin.value = roundToTwo(this.value * exchangeRateList[targ.value]);
+            form.rate_origin.value = roundToTwo(this.value * exchangeRateList[targ.value].CNY);
             $("#real_price").val(form.rate_origin.value).trigger("keyup");
         }
     });
