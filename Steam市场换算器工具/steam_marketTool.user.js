@@ -99,9 +99,9 @@
         let targ = form.currency_origin;
         this.value = formatPrice(this.value);
         if (this.name == "rate_origin") {
-            form.rate_result.value = roundToTwo(this.value / exchangeRateList[targ.value].CNY);
+            form.rate_result.value = roundToTwo(this.value * exchangeRateList[targ.value].CNY);
         } else {
-            form.rate_origin.value = roundToTwo(this.value * exchangeRateList[targ.value].CNY);
+            form.rate_origin.value = roundToTwo(this.value / exchangeRateList[targ.value].CNY);
             $("#real_price").val(form.rate_origin.value).trigger("keyup");
         }
     });
