@@ -2,7 +2,7 @@
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
 // @version      0.1.2
-// @description  try to take over the world!
+// @description  作用于动态页面，一天一次，0时刷新，自动发弹幕领取首条亲密度奖励
 // @author       You
 // @match        https://t.bilibili.com/
 // @icon         http://bilibili.com/favicon.ico

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         微博无内鬼图片处理+拉黑内鬼
 // @namespace    http://pronax.tech/
-// @version      2021-8-17 18:53:55
+// @version      2021-9-8 12:42:02
 // @description  仅限孙狗无内鬼环节
 // @author       You
 // @match        https://weibo.com/3176010690/*
@@ -24,7 +24,7 @@
 	GM_addStyle(".iconoGraph{max-width:150px;max-height:300px}.wng_img{max-width:300px;max-height:500px}");
 	GM_addStyle(".W_loading{margin:5px}");
 
-	var real_ng_list = ["2671562317", "5464819009", "6857211922", "5334141065", "1945987267", "7563836395", "2680672033", "5304894067", "7415309425", "6345843055", "7226822845", "5831076343", "5928929014", "7570487236", "5234287588", "5763947689", "6259812513", "6367090201", "7330956181", "3606572233", "7315063626", "7307948916", "6545355034", "2619054701", "2179108717", "5837773588", "5936018672", "5840135182", "5028156161", "6480626845", "2487754642", "6017668207", "5750663305", "5241389666", "5686627491", "7482359873", "5764580212", "5190907726", "7510503735", "6008273099", "2839650043", "5615937987", "5934070814", "6592810151", "5634370977", "6041633157"];
+	var real_ng_list = ["7655983378","2671562317","5846466462","5704340157", "5464819009", "6857211922", "5334141065", "1945987267", "7563836395", "2680672033", "5304894067", "7415309425", "6345843055", "7226822845", "5831076343", "5928929014", "7570487236", "5234287588", "5763947689", "6259812513", "6367090201", "7330956181", "3606572233", "7315063626", "7307948916", "6545355034", "2619054701", "2179108717", "5837773588", "5936018672", "5840135182", "5028156161", "6480626845", "2487754642", "6017668207", "5750663305", "5241389666", "5686627491", "7482359873", "5764580212", "5190907726", "7510503735", "6008273099", "2839650043", "5615937987", "5934070814", "6592810151", "5634370977", "6041633157"];
 	var debug = false;
 
 	$("a.S_txt1.home").attr("href", "#").click(function () {
@@ -48,6 +48,7 @@
 				if (res && res.status == 200) {
 					var src = "";
 					try {
+						console.log(res.response);
 						src = res.response.match(/src="(.*)">/)[1];
 					} catch (error) {
 						console.log(res);
@@ -62,7 +63,7 @@
 					let ng_target = this.parentNode;
 					let target_id = $(ng_target.children[0]).attr("usercard").slice(3);
 					real_ng_list.push(target_id);
-					copyText("," + '"' + target_id + '"');
+					navigator.clipboard.writeText("," + '"' + target_id + '"');
 					$(this).parents(".list_li.S_line1:first").remove();
 				});
 				$(targ).after(a);
@@ -103,17 +104,6 @@
 		for (let i = 0; i < wng.length; i++) {
 			getPhoto(wng[i]);
 		}
-	}
-
-	function copyText(text, callback) { // text: 要复制的内容， callback: 回调
-		let tag = document.createElement('input');
-		tag.setAttribute('id', 'cp_hgz_input');
-		tag.value = text;
-		document.getElementsByTagName('body')[0].appendChild(tag);
-		document.getElementById('cp_hgz_input').select();
-		document.execCommand('copy');
-		document.getElementById('cp_hgz_input').remove();
-		if (callback) { callback(text) }
 	}
 
 	var json;

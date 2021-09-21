@@ -2,7 +2,7 @@
 // @name         b站直播拉黑主播
 // @namespace    http://tampermonkey.net/
 // @version      0.1
-// @description  try to take over the world!
+// @description  用于具体某个分区页面下的屏蔽，仅使用css，非实际拉黑
 // @author       You
 // @match        https://live.bilibili.com/*
 // @icon         http://bilibili.com/favicon.ico
