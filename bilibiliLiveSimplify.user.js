@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室简化
 // @namespace    http://tampermonkey.net/
-// @version      0.1.2
+// @version      0.1.3
 // @description  简化聊天室但保留了粉丝牌、房管、老爷等标志。
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -15,10 +15,12 @@
 
 	GM_addStyle(".block-effect-ctnr{min-width: 175px;}.live-room-app .app-content{padding-top:60px !important}");
 	// 弹幕
-	GM_addStyle(".chat-history-panel .chat-history-list .chat-item.top3-notice{width:268px;border-radius:3px;margin:0}.fansmedal-popover{margin-left:-124px}.fansmedal-popover::after,.fansmedal-popover::before{left:80%!important}.rank-icon{float:right;margin:0 0 0 5px!important;width:24px!important;height:16px!important}.chat-item.danmaku-item>.user-name{color:#bbb!important;display:flex}.chat-item.danmaku-item>.title-label{display:none}.chat-item.danmaku-item>.danmaku-content{display:block!important;font-size:14px}.chat-item.danmaku-item:not(.superChat-card-detail)>div,.chat-item.danmaku-item:not(.superChat-card-detail)>.vip-icon{float:right;margin:0 0 0 5px!important}.chat-item.gift-item{margin:4px 0;border:1px solid #ffa32829;background-color:#ffc1001a}.chat-item.danmaku-item:not(.superChat-card-detail){margin:4px 0!important;border:1px solid #fff;background-color:#fff!important}.chat-item.gift-item,.chat-item.danmaku-item:not(.superChat-card-detail){width:268px;border-radius:5px}.chat-item.gift-item>.fans-medal-item-ctnr,.chat-item.important-prompt-item>.fans-medal-item-ctnr{float:right;right:-4px}.chat-item.superChat-card-detail .name{color:#444!important;font-size:16px!important}.chat-item.superChat-card-detail .fans-medal-item-ctnr{position:absolute;right:10px;top:13px}.chat-item.superChat-card-detail>.card-item-top-right{color:#fff!important;right:110px!important;border:1px solid;padding-right:6px!important;background-color:#2a60b2}.chat-item.superChat-card-detail .card-item-middle-top{height:32px!important}.chat-history-panel .danmaku-buffer-prompt{bottom:60px;position: relative;border-radius:20px;width:130px;opacity:.85;margin:0 auto}");
+	GM_addStyle(".chat-history-panel .chat-history-list .chat-item.top3-notice{width:268px;border-radius:3px;margin:0}.fansmedal-popover{margin-left:-124px}.fansmedal-popover::after,.fansmedal-popover::before{left:80%!important}.rank-icon{float:right;margin:0 0 0 5px!important;width:24px!important;height:16px!important}.chat-item{width:270px}.chat-item.danmaku-item>.user-name{color:#bbb!important;display:flex}.chat-item.danmaku-item>.title-label{display:none}.chat-item.danmaku-item>.danmaku-content{display:block!important;font-size:14px}.chat-item.danmaku-item:not(.superChat-card-detail)>div,.chat-item.danmaku-item:not(.superChat-card-detail)>.vip-icon{float:right;margin:0 0 0 5px!important}.chat-item.gift-item{margin:4px 0;border:1px solid #ffa32829;background-color:#ffc1001a}.chat-item.danmaku-item:not(.superChat-card-detail){margin:4px 0!important;border:1px solid #fff;background-color:#fff!important}.chat-item.gift-item,.chat-item.danmaku-item:not(.superChat-card-detail){width:268px;border-radius:5px}.chat-item.gift-item>.fans-medal-item-ctnr,.chat-item.important-prompt-item>.fans-medal-item-ctnr{float:right;right:-4px}.chat-item.superChat-card-detail{width:280px}.chat-item.superChat-card-detail .name{margin-left:0!important}.chat-item.superChat-card-detail .superChat-base{position:absolute;right:8px;top:4px}.chat-item.superChat-card-detail .card-item-top-right{position:static!important;line-height:10px!important;padding:0!important}.chat-item.superChat-card-detail .card-item-top-right>.exp{font-size:12px;color:#999}.chat-item.superChat-card-detail .card-item-middle-top{height:45px!important}.chat-history-panel .danmaku-buffer-prompt{bottom:60px;position:relative;border-radius:20px;width:130px;opacity:.85;margin:0 auto}");
 	GM_addStyle(".send-ts{;background-color: #fff;opacity:0}.send-ts:hover{;background-color: #fff;opacity:1}");
 	// 标题
 	GM_addStyle(".head-info-section{height:78px!important}.head-info-section>.header-info-ctnr{padding:6px}.head-info-section .right-ctnr{right:5px}");
+	// 礼物栏
+	GM_addStyle("#gift-control-vm{height: 120px;}.gift-control-panel {height: 110px!important;}");
 
 	var count = 100;
 	var userId = getUserID();
@@ -42,7 +44,6 @@
 	} else if (config.giftPersistence) {
 		// 礼物
 		GM_addStyle(".penury-gift-msg{display:none}");
-		GM_addStyle("#gift-control-vm{height: 120px;}.gift-control-panel {height: 110px!important;}");
 		GM_addStyle(".important-prompt-item>.username{margin-right: 4px;color: #999;overflow: hidden;text-overflow: ellipsis;}.important-prompt-item>.count{vertical-align: middle;}");
 		GM_addStyle(".chat-history-panel .chat-history-list.with-penury-gift{height:100%}.chat-history-panel .chat-history-list.with-penury-gift.with-brush-prompt{height:calc(100% - 30px)}");
 	}
@@ -63,7 +64,14 @@
 							item.querySelector(".fans-medal-item-ctnr") && item.prepend(item.querySelector(".fans-medal-item-ctnr"));
 							item.querySelector(".rank-icon") && item.querySelector(".user-name").before(item.querySelector(".rank-icon"));
 							if (item.classList[2] == "superChat-card-detail") {
-								item.querySelector(".card-item-top-right").style.backgroundColor = item.querySelector(".card-item-middle-bottom").style.backgroundColor;
+								item.querySelector(".card-item-middle-top-right").append(item.querySelector(".card-item-top-right"));
+								item.querySelector(".superChat-base").append(item.querySelector(".fans-medal-item-target"));
+								item.querySelector(".name").style.color = item.querySelector(".card-item-middle-bottom").style.backgroundColor;
+								let price = item.querySelector(".card-item-top-right");
+								let ele = document.createElement("span");
+								ele.innerHTML = `（${price.innerText.match(/\d+/)[0] * 10}电池）`;
+								ele.className = "exp";
+								price.append(ele);
 							} else if (item.querySelector(".my-self")) {
 								item.querySelector(".my-self").className += " open-menu pointer";
 								item.querySelector(".my-self").nextElementSibling.classList.add("open-menu");
@@ -94,14 +102,18 @@
 						latestInfo.number += +info[2];
 						clearTimeout(latestInfo.timeoutId);
 						latestInfo.timeoutId = setTimeout(() => {
-							let ele = document.createElement("div");
-							ele.className = "chat-item important-prompt-item";
-							ele.innerHTML = e.target.innerHTML.replace(/class="count">X (\d+)/, `class='count'>共${latestInfo.number}个`);
-							document.getElementById(latestInfo.id) && document.getElementById(latestInfo.id).remove();
-							document.querySelector(".chat-items").append(ele);
 							giftInfo.delete(info[1]);
 						}, 2000);
 						giftInfo.set(info[1], latestInfo);
+						let ele = document.getElementById(latestInfo.id);
+						if (!ele) {
+							ele = document.createElement("div");
+							ele = document.createElement("div");
+							ele.id = latestInfo.id;
+							ele.className = "chat-item important-prompt-item";
+						}
+						ele.innerHTML = e.target.innerHTML.replace(/class="count">X (\d+)/, `class='count'>${latestInfo.number}连击`);
+						document.querySelector(".chat-items").append(ele);
 					} else {
 						let randomId = `gift-msg-${Math.random() * 2000 >> 1}`;
 						giftInfo.set(info[1], {
