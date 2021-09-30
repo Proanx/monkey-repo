@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         Steam市场 价格/比例/汇率 换算器
 // @namespace    http://pronax.wtf/
-// @version      0.4.1
+// @version      0.4.2
 // @description  见安装页面介绍
 // @author       Pronax
 // @include      *://steamcommunity.com/market/*
 // @require      https://code.jquery.com/jquery-1.12.4.min.js
-// @connect      esapi.isthereanydeal.com
+// @connect      www.usd-cny.com
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @grant        GM_getValue
@@ -31,6 +31,13 @@
         return Math.round((num * 100)) / 100;
     }
 
+    function currencyExchange(value, origin, target) {
+        if (origin == target) {
+            return value;
+        }
+        return (value / (exchangeRateList[origin + ":CUR"] || 1) * (exchangeRateList[target + ":CUR"] || 1)).toFixed(2);
+    }
+
     function formatPrice(originPrice, currencyData) {
         if (!currencyData) {
             currencyData = g_rgCurrencyData[$("#price_tool_rate_form")[0].currency_origin.value];
@@ -49,23 +56,26 @@
     }
 
     function updateRate(force) {
-        if ((!force) && exchangeRateList && exchangeRateList.CNY.CNY && exchangeRateList.time_next_update_unix > new Date().getTime()) {
+        if ((!force) && exchangeRateList.time_next_update_unix > Date.now()) {
             return;
         }
         GM_xmlhttpRequest({
-            url: "https://esapi.isthereanydeal.com/v01/rates/?to=CNY",
+            url: "https://www.usd-cny.com/hv.js",   // 这家的汇率差的挺多的
             method: "get",
             onload: function (response) {
-                let data = JSON.parse(response.responseText);
-                console.log(data);
-                if (data.result == "success") {
-                    let timeUnix = new Date().getTime();
-                    data.data.time_next_update_unix = timeUnix + 10800000;
-                    data.data.time_update_unix = timeUnix;
-                    exchangeRateList = data.data;
+                let index = response.responseText.indexOf("price[\n");
+                if (response.status == 200 && index >= 0) {
+                    let data = response.responseText.substr(index).replaceAll(/\r|\n/g, "");
+                    let price = new Object();
+                    eval(data);
+                    let timeUnix = Date.now();
+                    price.time_next_update_unix = timeUnix + 10800000;
+                    price.time_update_unix = timeUnix;
+                    exchangeRateList = price;
+                    console.log(exchangeRateList);
                     GM_setValue("exchangeRateList", exchangeRateList);
                 } else {
-                    console.log("更新汇率时出错：", data["error_description"]);
+                    console.log("更新汇率时出错：", response);
                 }
             },
             onerror: function (err) {
@@ -74,7 +84,10 @@
         });
     }
 
-    var exchangeRateList = GM_getValue("exchangeRateList");
+    var exchangeRateList = GM_getValue("exchangeRateList") || {
+        time_next_update_unix: 0,
+        time_update_unix: 0
+    };
 
     updateRate();
 
@@ -99,9 +112,9 @@
         let targ = form.currency_origin;
         this.value = formatPrice(this.value);
         if (this.name == "rate_origin") {
-            form.rate_result.value = roundToTwo(this.value * exchangeRateList[targ.value].CNY);
+            form.rate_result.value = currencyExchange(this.value, targ.value, "CNY");
         } else {
-            form.rate_origin.value = roundToTwo(this.value / exchangeRateList[targ.value].CNY);
+            form.rate_origin.value = currencyExchange(this.value, "CNY", targ.value);
             $("#real_price").val(form.rate_origin.value).trigger("keyup");
         }
     });
