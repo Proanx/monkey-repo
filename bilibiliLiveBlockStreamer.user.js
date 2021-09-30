@@ -17,7 +17,7 @@
     var blockList = getList();
 
     if (location.pathname.match(/\/\d+/)) {
-        GM_addStyle(".bili-block-btn>i.icon-report:before{content: '\\E069' !important;}");
+        GM_addStyle(".bili-block-btn>i.icon-report:before{content: '\\E00f' !important;}");
 
         var roomId = document.querySelector("#iframe-popup-area>iframe") && document.querySelector("#iframe-popup-area>iframe").src.match(/roomid=(\d+)/)[1] || location.pathname.match(/\/(\d+)/)[1];
 
