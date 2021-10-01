@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.2
+// @version      0.1.3
 // @description  作用于动态页面，一天一次，0时刷新，自动发弹幕领取首条亲密度奖励
 // @author       You
 // @match        https://t.bilibili.com/
@@ -19,7 +19,7 @@
     var doneCount;
     var failedList = new Map();
 
-    var emojiList = ["打卡(˘･_･˘)", "打卡(。’▽’。)♡", "打卡⊙ω⊙", "打卡ヾ(✿ﾟ▽ﾟ)ノ", "打卡_(:3」∠)_"];
+    var emojiList = ["打卡(˘･_･˘)", "打卡(´ฅω•ฅ`)", "打卡(＃°Д°)", "打卡(´･ω･`)", "打卡_(:3」∠)_"];
 
     var curPage;
     var totalPages;
@@ -44,7 +44,7 @@
                     return;
                 }
                 doneCount = 0;
-                totalCount = result.data.count;
+                totalCount = result.data.fansMedalList.length;
                 curPage = result.data.pageinfo.curPage;
                 totalPages = result.data.pageinfo.totalpages;
                 let count = 0;
