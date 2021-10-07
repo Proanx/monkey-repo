@@ -5,7 +5,7 @@
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
 // @icon         http://bilibili.com/favicon.ico
-// @grant        GM_addStyle
+// @grant        none
 // @noframes
 // ==/UserScript==
 
@@ -13,9 +13,9 @@
     'use strict';
 
     // 按钮
-    GM_addStyle(".side-bar-gamble-cntr{width:47px;height:60px!important;position:fixed;right:0;bottom:13.5%;padding:0 4px 12px;background-color:#fff;z-index:11;border-radius:0 0 0 12px;box-shadow:0 5px 8px 0 rgb(0 85 255 / 5%);border:1px solid #e9eaec;border-top:0;transform:translate3d(0,0,0)}.side-bar-gamble-btn{height:56px;box-sizing:border-box;margin:4px 0;cursor:pointer;text-align:center;padding:5px 4px;position:relative}.side-bar-gamble-icon{font-size:26px !important;margin:0 auto;width:26px;height:26px}.side-bar-btn-cntr:hover .side-bar-gamble-icon{-webkit-animation:link-live-sidebar-jumping-data-v-7cd63ad2 cubic-bezier(.22,.58,.12,.98) 1.5s infinite;animation:link-live-sidebar-jumping-data-v-7cd63ad2 cubic-bezier(.22,.58,.12,.98) 1.5s infinite}.size-bar-gamble-text{margin:4px 0 0 0;font-size:12px;line-height:16px;color:#006cb5}");
+    document.styleSheets[0].insertRule(".side-bar-gamble-cntr{width:47px;height:60px!important;position:fixed;right:0;bottom:13.5%;padding:0 4px 12px;background-color:#fff;z-index:11;border-radius:0 0 0 12px;box-shadow:0 5px 8px 0 rgb(0 85 255 / 5%);border:1px solid #e9eaec;border-top:0;transform:translate3d(0,0,0)}.side-bar-gamble-btn{height:56px;box-sizing:border-box;margin:4px 0;cursor:pointer;text-align:center;padding:5px 4px;position:relative}.side-bar-gamble-icon{font-size:26px !important;margin:0 auto;width:26px;height:26px}.side-bar-btn-cntr:hover .side-bar-gamble-icon{-webkit-animation:link-live-sidebar-jumping-data-v-7cd63ad2 cubic-bezier(.22,.58,.12,.98) 1.5s infinite;animation:link-live-sidebar-jumping-data-v-7cd63ad2 cubic-bezier(.22,.58,.12,.98) 1.5s infinite}.size-bar-gamble-text{margin:4px 0 0 0;font-size:12px;line-height:16px;color:#006cb5}");
     // 面板
-    GM_addStyle(`
+    document.styleSheets[0].insertRule(`
 
     .gamble-panel {
         width: 500px;
