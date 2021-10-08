@@ -19,10 +19,10 @@
         }
         .medal-wear-body .medal-item {
             cursor: pointer;
-            padding: 6px 12px 7px;
+            padding: 6px 6px 7px;
             margin: 1px;
             background: 0;
-            border: 1px solid #eee;
+            border: 1px solid transparent;
             border-radius:5px;
             width:calc(100% - 5px);
             text-align:left
@@ -31,10 +31,12 @@
             background-color: #eef5fb;
         }
         .medal-wear-body .medal-item .living-gif {
-            background-image: url(//s1.hdslb.com/bfs/static/blive/blfe-live-room/static/img/living.44021fe..gif);
+            background-image: url(//s1.hdslb.com/bfs/static/blive/live-fansmedal-wall/static/img/icon-online.fd4254c1.gif);
             background-size: cover;
             width: 12px;
             height: 12px;
+			margin-left: 2px;
+			transform: rotateY(180deg);
         }
         .medal-wear-body{
             padding-top:4px !important;
