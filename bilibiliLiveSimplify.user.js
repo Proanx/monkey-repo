@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室简化
 // @namespace    http://tampermonkey.net/
-// @version      0.1.3
+// @version      0.1.4
 // @description  简化聊天室但保留了粉丝牌、房管、老爷等标志。
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -65,7 +65,7 @@
 							item.querySelector(".rank-icon") && item.querySelector(".user-name").before(item.querySelector(".rank-icon"));
 							if (item.classList[2] == "superChat-card-detail") {
 								item.querySelector(".card-item-middle-top-right").append(item.querySelector(".card-item-top-right"));
-								item.querySelector(".superChat-base").append(item.querySelector(".fans-medal-item-target"));
+								item.querySelector(".fans-medal-item-target") && item.querySelector(".superChat-base").append(item.querySelector(".fans-medal-item-target"));
 								item.querySelector(".name").style.color = item.querySelector(".card-item-middle-bottom").style.backgroundColor;
 								let price = item.querySelector(".card-item-top-right");
 								let ele = document.createElement("span");
