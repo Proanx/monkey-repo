@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         B站直播抽奖姬
-// @version      1.0
+// @version      1.0.1
 // @description  给主播用来的抽奖的
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -111,6 +111,7 @@
                 }
                 if (resultCount == 20 * num + 1) {
                     document.querySelector(".tv-clost-btn").classList.remove("dp-none");
+                    document.querySelector("#gamble-draw-btn").disabled = false;
                 }
             }, 50);
         }
@@ -277,6 +278,7 @@
         let resultElement = document.querySelector("#biliTvLogo>.result");
         bounsNumber = bounsNumber.length && bounsNumber >= 0 ? bounsNumber : 1;
         let repeatableClaim = document.querySelector("#gamble-repeatable").checked;
+        drawBtn.disabled = true;
         document.querySelector(".tv-clost-btn").classList.add("dp-none");
         document.querySelectorAll(".list-row.lucky").forEach((currentValue) => {
             currentValue.classList.remove("lucky");
