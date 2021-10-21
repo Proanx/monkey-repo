@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         自动弹幕
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.1.1
 // @description  你很有观察力!
 // @author       Pronax
 // @match        https://live.bilibili.com/23449607*
@@ -27,6 +27,7 @@
     const broadcastInterval = 300000;   // 公告弹幕冷却
     // 公告弹幕内容 
     // ps:不要超过自己账号的弹幕长度限制并且不能有违禁词，否则必发不出去
+    // pps:什么都不写只有引号就是不发
     const broadcastContent = "";
 
     var danmuNotice = new Map(), freeGiftNotice = new Map(), giftNotice = new Map(), welcomeNotice = new Map();
@@ -101,14 +102,12 @@
                 let action = e.target.querySelector(".action").innerText;
                 let gift = e.target.querySelector(".gift-name").innerText;
                 let fansMedalDetaile = getfansMedalDetail(e.target);
-                send(uname + action + gift);
             }, true);
         }
         if (!count--) { clearInterval(interval); }
     }, 100);
 
     function broadcast() {
-        console.log("我再发送！");
         send(broadcastContent, 0, () => {
             GM_setValue("broadcastTimestamp", Date.now() + broadcastInterval);
             setTimeout(broadcast, broadcastInterval);
