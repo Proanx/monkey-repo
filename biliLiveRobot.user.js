@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         自动弹幕
 // @namespace    http://tampermonkey.net/
-// @version      0.1.3
+// @version      0.1.4
 // @description  你很有观察力!
 // @author       Pronax
 // @match        https://live.bilibili.com/23449607*
@@ -33,7 +33,7 @@
     ];
 
     const welcomeCountGap = 20000;      // 入场人数统计间隔
-    
+
     var broadcastPointer = 0;
     var welcomeCount = new Map();
 
@@ -83,7 +83,7 @@
                         // 船一类的
                         case "misc-msg":
                             uname = item.firstElementChild.innerText;
-                            let describe = item.lastChild.trim();   // eg. 自动续费了舰长
+                            let describe = item.lastChild.textContent.trim();   // eg. 自动续费了舰长
                             send(`感谢${uname}老板上舰`);
                             break;
                     }
