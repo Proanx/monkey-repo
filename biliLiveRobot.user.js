@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         自动弹幕
 // @namespace    http://tampermonkey.net/
-// @version      0.1.1
+// @version      0.1.2
 // @description  你很有观察力!
 // @author       Pronax
 // @match        https://live.bilibili.com/23449607*
@@ -27,8 +27,11 @@
     const broadcastInterval = 300000;   // 公告弹幕冷却
     // 公告弹幕内容 
     // ps:不要超过自己账号的弹幕长度限制并且不能有违禁词，否则必发不出去
-    // pps:什么都不写只有引号就是不发
-    const broadcastContent = "";
+    // pps:什么都不写只有括号就是不发
+    const broadcastContent = [
+        "关注主播可以点歌哦♡歌单在置顶动态",
+    ];
+    var broadcastPointer = 0;
 
     var danmuNotice = new Map(), freeGiftNotice = new Map(), giftNotice = new Map(), welcomeNotice = new Map();
 
@@ -108,7 +111,7 @@
     }, 100);
 
     function broadcast() {
-        send(broadcastContent, 0, () => {
+        send(broadcastContent[broadcastPointer++ % broadcastContent.length], 0, () => {
             GM_setValue("broadcastTimestamp", Date.now() + broadcastInterval);
             setTimeout(broadcast, broadcastInterval);
         });
