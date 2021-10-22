@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         自动弹幕
 // @namespace    http://tampermonkey.net/
-// @version      0.1.2
+// @version      0.1.3
 // @description  你很有观察力!
 // @author       Pronax
 // @match        https://live.bilibili.com/23449607*
@@ -31,7 +31,11 @@
     const broadcastContent = [
         "关注主播可以点歌哦♡歌单在置顶动态",
     ];
+
+    const welcomeCountGap = 20000;      // 入场人数统计间隔
+    
     var broadcastPointer = 0;
+    var welcomeCount = new Map();
 
     var danmuNotice = new Map(), freeGiftNotice = new Map(), giftNotice = new Map(), welcomeNotice = new Map();
 
@@ -77,10 +81,10 @@
                             let num = item.querySelector(".gift-num").innerText.trim() || (item.querySelector(".gift-count") && item.querySelector(".gift-count").innerText) || (item.querySelector(".gift-total-count") && item.querySelector(".gift-total-count").innerText);
                             break;
                         // 船一类的
-                        case "system-msg":
-                            uname = item.querySelectorAll("span.v-middle")[0];
-                            let describe = item.querySelectorAll("span.v-middle")[2];   // eg. 舰长12个月
-                            send(`感谢${uname}老板续费${describe}`);
+                        case "misc-msg":
+                            uname = item.firstElementChild.innerText;
+                            let describe = item.lastChild.trim();   // eg. 自动续费了舰长
+                            send(`感谢${uname}老板上舰`);
                             break;
                     }
                 }
@@ -90,7 +94,11 @@
             document.querySelector("#brush-prompt").addEventListener('DOMNodeInserted', function (e) {
                 let uname = e.target.querySelector(".interact-name").innerText;
                 let fansMedalDetaile = getfansMedalDetail(e.target);
-                if (!welcomeNotice.get(uname)) {
+                // 人数太多的时候就不发了
+                welcomeCount.set(uname, setTimeout(() => {
+                    welcomeCount.delete(uname);
+                }, welcomeCountGap));
+                if (welcomeCount.size < 5 && !welcomeNotice.get(uname)) {
                     send(`欢迎${uname}进入直播间`, 0, () => {
                         welcomeNotice.set(uname, setTimeout(() => {
                             welcomeNotice.delete(uname);
