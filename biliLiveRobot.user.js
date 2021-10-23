@@ -30,6 +30,7 @@
     // pps:什么都不写只有括号就是不发
     const broadcastContent = [
         "关注主播可以点歌哦♡歌单在置顶动态",
+        "喜欢主播的可以加下交流群♡开播有通知哦",
     ];
 
     const welcomeCountGap = 20000;      // 入场人数统计间隔
