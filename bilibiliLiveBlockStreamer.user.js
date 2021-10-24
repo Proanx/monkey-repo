@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播拉黑主播
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.1.1
 // @description  用于具体某个分区页面下的屏蔽，仅使用css，非实际拉黑
 // @author       You
 // @match        https://live.bilibili.com/*
@@ -34,7 +34,7 @@
     } else if (location.pathname.match(/\/all|p\/eden\/area-tags/)) {
         let css = "";
         for (let i = 0; i < blockList.length; i++) {
-            css += i ? `,a[href*="${blockList[i]}"]` : `a[href*="${blockList[i]}"]`;
+            css += i ? `,a[href*="com/${blockList[i]}?"]` : `a[href*="com/${blockList[i]}?"]`;
         }
         if (css) {
             css += "{display:none}";
