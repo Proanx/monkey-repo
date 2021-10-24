@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室去除字数限制
 // @namespace    http://tampermonkey.net/
-// @version      0.1.2
+// @version      0.1.3
 // @description  原理是分开发送。接管了发送框，会提示屏蔽词
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -13,13 +13,13 @@
 (function () {
 	'use strict';
 
+	const LIMIT = 20;
 	var jct = document.cookie.match(/bili_jct=(\w*); /) && document.cookie.match(/bili_jct=(\w*); /)[1];
 	var roomId = location.href.match(/\/(\d+)/)[1];
-	var limit = 30;
 	var toastCount = 0;
 	var isProcessing = false;
 
-	const fWord = ["超度", "渣男", "和谐", "河蟹", "敏感", "你妈", "代孕", "硬了", "抖音", "保卫", "被gan", "寄吧", "郭楠", "里番", "小幸运", "试看", "加QQ", "警察", "营养", "资料", "家宝", "饿死", "不认字", "横幅", "hentai", "诱惑", "垃圾", "福报", "拉屎", "顶不住", "一口气", "苏联", "哪个平", "老鼠台", "顶得住", "gay", "黑幕", "蜀黍我啊", "梯子", "美国", "米国", "系统提示", "未成年", "爪巴"];
+	const fWord = ["分钟", "爽死", "黑历史", "超度", "渣男", "和谐", "河蟹", "敏感", "你妈", "代孕", "硬了", "抖音", "保卫", "被gan", "寄吧", "郭楠", "里番", "小幸运", "试看", "加QQ", "警察", "营养", "资料", "家宝", "饿死", "不认字", "横幅", "hentai", "诱惑", "垃圾", "福报", "拉屎", "顶不住", "一口气", "苏联", "哪个平", "老鼠台", "顶得住", "gay", "黑幕", "蜀黍我啊", "梯子", "美国", "米国", "系统提示", "未成年", "爪巴"];
 	const fireWord = { "党": "档", "89": "B9", "戏精": "戏京", "八九": "八仇", "八十九": "八十仇", "你妈逼": "你冯逼", "你画我猜": "您画我猜", "叔叔我啊": "叔叔莪啊", "爬": "瓟", "倒车": "到车" };
 
 	GM_addStyle(".medal-section{display:inline-block}.dialog-ctnr>.arrow{display:none}.chat-input-ctnr>div:first-of-type{width:100%}.chat-input-ctnr .input-limit-hint{bottom:0!important;right:53px!important}#chat-control-panel-vm{height:102px}.chat-history-panel{height:calc(100% - 128px - 102px)!important}#liveDanmuSendBtn{height:100%;min-width:50px;padding-top:5px;border-radius:0 3px 3px 0}.link-toast.error{left:40px;right:40px;white-space:normal;margin:auto;text-align:center;box-shadow:0 .2em .1em .1em rgb(255 100 100 / 20%)}#liveDanmuInputArea{padding:8px;overflow:auto;scrollbar-width:thin}#liveDanmuInputArea::-webkit-scrollbar{width:6px}#liveDanmuInputArea::-webkit-scrollbar-thumb{background-color:#aaa}.control-panel-icon-row>.icon-right-part{margin-right:6px}.chat-input-ctnr{margin-top:4px!important}.control-panel-icon-row>.medal-section>.medal-item-margin{margin:2px}");
@@ -45,20 +45,20 @@
 				if ((!msg) || isProcessing) { if (isProcessing) { toast("有弹幕正在发送中", 1500, "info") } return; }
 				isProcessing = true;
 				let page = 1;
-				limit = 30;
-				if (msg.length > 30) {
+				let segment = LIMIT;
+				if (msg.length > segment) {
 					// 自动平均每条弹幕的长度
-					while (msg.length / limit % 1 < 0.7 && msg.length / limit % 1 != 0) {
-						limit--;
+					while (msg.length / segment % 1 < 0.7 && msg.length / segment % 1 != 0) {
+						segment--;
 					}
-					page = Math.ceil(msg.length / limit);
-					console.log(`长度：${msg.length} 间隔：${limit} 分页：${page}`);
+					page = Math.ceil(msg.length / segment);
+					console.log(`长度：${msg.length} 间隔：${segment} 分页：${page}`);
 				}
 				let count = 0;
 				do {
-					let str = msg.substr(0, limit);
+					let str = msg.substr(0, segment);
 					let result = await sendMsg(str, count++ ? 500 + Math.random() * 1000 >> 1 : 0);
-					msg = msg.substr(limit);
+					msg = msg.substr(segment);
 					$("#liveDanmuInputArea").val(msg);
 					document.querySelector("#liveDanmuInputArea").oninput();
 				} while (msg.length > 0);
@@ -67,8 +67,8 @@
 			document.querySelector('#liveDanmuInputArea').oninput = function () {
 				this.value = filter(this.value);
 				let length = this.value.length;
-				$(".input-limit-hint").text(length + "/30");
-				if (length > 30) {
+				$(".input-limit-hint").text(length);
+				if (length > LIMIT) {
 					$(".input-limit-hint").css("color", "#23ade5");
 				} else {
 					$(".input-limit-hint").css("color", "");
