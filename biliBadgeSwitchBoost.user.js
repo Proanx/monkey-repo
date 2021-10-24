@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  所有徽章都能看到了
 // @author       You
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -13,13 +13,9 @@
     'use strict';
 
     GM_addStyle(`
-        .medal-item>.progress-level-div,
-        .medal-item>.limit-progress-div {
-            display: none
-        }
         .medal-wear-body .medal-item {
             cursor: pointer;
-            padding: 6px 6px 7px;
+            padding: 5px;
             margin: 1px;
             background: 0;
             border: 1px solid transparent;
@@ -28,7 +24,7 @@
             text-align:left
         }
         .medal-wear-body .medal-item:hover {
-            background-color: #eef5fb;
+            border:1px solid #5dcef5;
         }
         .medal-wear-body .medal-item .living-gif {
             background-image: url(//s1.hdslb.com/bfs/static/blive/live-fansmedal-wall/static/img/icon-online.fd4254c1.gif);
@@ -42,12 +38,74 @@
             padding-top:4px !important;
             max-height:240px;
             overflow:auto;
+			scrollbar-width: thin;
         }
-        .medal-wear-body .medal-item>span{
-            margin-left: 10px;
+
+        .medal-wear-body::-webkit-scrollbar{
+            width:6px
+        }
+        .medal-wear-body::-webkit-scrollbar-thumb{
+            background-color:#aaa
+        }
+
+        .medal-wear-body .medal-item>.name{
+            margin-left:5px;
             color: #666;
-            max-width: 68px;
             position: relative;
+        }
+
+        .medal-wear-body .medal-item>.text{
+            color: #666;
+            position: relative;
+        }
+        .medal-wear-body .medal-item .progress-level-div {
+            margin-top: 5px;
+        }
+
+        .medal-wear-body .medal-item .progress-level-div .level-span-left {
+            text-align: right;
+        }
+
+        .medal-wear-body .medal-item .progress-level-div .level-span {
+            width: 29px;
+            color: #999;
+            position: relative;
+            top: -2px;
+        }
+
+        .medal-wear-body .medal-item .progress-level-div .progress-div {
+            line-height: 14px;
+            height: 14px;
+            width: 174px;
+            background-color: #e2e8ec;
+            border-radius: 2px;
+            text-align: center;
+            margin: 0 5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .medal-wear-body .medal-item .progress-level-div .progress-div-cover {
+            width: 80px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            overflow: hidden;
+            background-color: #23ade5;
+            height: 14px;
+        }
+
+        .medal-wear-body .medal-item .progress-level-div .progress-div .progress-num-span {
+            color: #23ade5;
+        }
+
+        .medal-wear-body .medal-item .progress-level-div .progress-div-cover .progress-num-span-cover {
+            width: 174px;
+            position: relative;
+            z-index: 1000;
+            line-height: 14px;
+            color: #fff;
+        }
     `);
 
     function ajaxEventTrigger(event) {
@@ -92,7 +150,7 @@
                 let ele = document.createElement("button");
                 ele.className = "medal-item";
                 ele.setAttribute("data-medal_id", item.medal_id);
-                ele.innerHTML = `<div class="v-middle fans-medal-item" style="border-color:#${item.medal_color.toString(16)}"><div class="fans-medal-label" style="background-image:linear-gradient(45deg,#${item.medal_color_start.toString(16)},#${item.medal_color_end.toString(16)});"><span class="fans-medal-content">${item.medal_name}</span></div><div class="fans-medal-level" style="color:#${item.medal_color.toString(16)}">${item.level}</div></div><span class="v-middle">${item.target_name}</span>${item.live_stream_status ? '<span class="dp-i-block living-gif v-middle"></span>' : ''}`;
+                ele.innerHTML = `<div class="v-middle fans-medal-item" style="border-color:#${item.medal_color.toString(16)}"><div class="fans-medal-label" style="background-image:linear-gradient(45deg,#${item.medal_color_start.toString(16)},#${item.medal_color_end.toString(16)});"><span class="fans-medal-content">${item.medal_name}</span></div><div class="fans-medal-level" style="color:#${item.medal_color.toString(16)}">${item.level}</div></div><span class="name v-middle">${item.target_name}${item.live_stream_status ? '<span class="dp-i-block living-gif v-middle"></span>' : ''}</span><span class="text v-middle f-right"">${item.today_feed}/${item.day_limit}</span><div class="dp-i-block progress-level-div"><span class="dp-i-block level-span level-span-left">Lv.${item.level}</span><div class="dp-i-block progress-div"><span class="dp-i-block progress-num-span">${item.intimacy}/${item.next_intimacy}</span><div class="dp-i-block progress-div-cover" style="width: ${item.intimacy/item.next_intimacy*100}%;"><span class="dp-i-block progress-num-span-cover">${item.intimacy}/${item.next_intimacy}</span></div></div><span class="dp-i-block level-span">Lv.${item.level+1}</span></div>`;
                 ele.onclick = async function (e) {
                     try {
                         await switchBadge(this.getAttribute("data-medal_id"));
