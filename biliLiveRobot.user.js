@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         自动弹幕
 // @namespace    http://tampermonkey.net/
-// @version      0.1.4
+// @version      0.1.5
 // @description  你很有观察力!
 // @author       Pronax
 // @match        https://live.bilibili.com/23449607*
@@ -82,39 +82,39 @@
                             let num = item.querySelector(".gift-num").innerText.trim() || (item.querySelector(".gift-count") && item.querySelector(".gift-count").innerText) || (item.querySelector(".gift-total-count") && item.querySelector(".gift-total-count").innerText);
                             break;
                         // 船一类的
-                        case "misc-msg":
-                            uname = item.firstElementChild.innerText;
-                            let describe = item.lastChild.textContent.trim();   // eg. 自动续费了舰长
-                            send(`感谢${uname}老板上舰`);
-                            break;
+                        // case "misc-msg":
+                        //     uname = item.firstElementChild.innerText;
+                        //     let describe = item.lastChild.textContent.trim();   // eg. 自动续费了舰长
+                        //     send(`感谢${uname}老板上舰`);
+                        //     break;
                     }
                 }
             }, true);
 
             // 入场
-            document.querySelector("#brush-prompt").addEventListener('DOMNodeInserted', function (e) {
-                let uname = e.target.querySelector(".interact-name").innerText;
-                let fansMedalDetaile = getfansMedalDetail(e.target);
-                // 人数太多的时候就不发了
-                welcomeCount.set(uname, setTimeout(() => {
-                    welcomeCount.delete(uname);
-                }, welcomeCountGap));
-                if (welcomeCount.size < 5 && !welcomeNotice.get(uname)) {
-                    send(`欢迎${uname}进入直播间`, 0, () => {
-                        welcomeNotice.set(uname, setTimeout(() => {
-                            welcomeNotice.delete(uname);
-                        }, welcomeInterval));
-                    });
-                }
-            }, true);
+            // document.querySelector("#brush-prompt").addEventListener('DOMNodeInserted', function (e) {
+            //     let uname = e.target.querySelector(".interact-name").innerText;
+            //     let fansMedalDetaile = getfansMedalDetail(e.target);
+            //     // 人数太多的时候就不发了
+            //     welcomeCount.set(uname, setTimeout(() => {
+            //         welcomeCount.delete(uname);
+            //     }, welcomeCountGap));
+            //     if (welcomeCount.size < 5 && !welcomeNotice.get(uname)) {
+            //         send(`欢迎${uname}进入直播间`, 0, () => {
+            //             welcomeNotice.set(uname, setTimeout(() => {
+            //                 welcomeNotice.delete(uname);
+            //             }, welcomeInterval));
+            //         });
+            //     }
+            // }, true);
 
             // 免费礼物
-            document.querySelector("#penury-gift-msg").addEventListener('DOMNodeInserted', function (e) {
-                let uname = e.target.querySelector(".username").innerText;
-                let action = e.target.querySelector(".action").innerText;
-                let gift = e.target.querySelector(".gift-name").innerText;
-                let fansMedalDetaile = getfansMedalDetail(e.target);
-            }, true);
+            // document.querySelector("#penury-gift-msg").addEventListener('DOMNodeInserted', function (e) {
+            //     let uname = e.target.querySelector(".username").innerText;
+            //     let action = e.target.querySelector(".action").innerText;
+            //     let gift = e.target.querySelector(".gift-name").innerText;
+            //     let fansMedalDetaile = getfansMedalDetail(e.target);
+            // }, true);
         }
         if (!count--) { clearInterval(interval); }
     }, 100);
