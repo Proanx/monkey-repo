@@ -257,13 +257,21 @@ if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
 
     // 上舰
     bliveproxy.addCommandHandler("GUARD_BUY", message => {
-        console.warn(message);
+        sendDanmu(GUARD_CONTENT[contentPointer++ % GUARD_CONTENT.length].replace("$1", message.data.username));
     });
 
-    // 关注
+    // 小字交互
     bliveproxy.addCommandHandler("INTERACT_WORD", message => {
-        if (message.data.msg_type == 2) {
-            sendDanmu(FOLLOW_CONTENT[contentPointer++ % FOLLOW_CONTENT.length].replace("$1", message.data.uname));
+        switch (message.data.msg_type) {
+            case 1:  // 入场
+                // sendDanmu(`欢迎${message.data.uname}进入直播间`);
+                break;
+            case 2:  // 关注
+                sendDanmu(FOLLOW_CONTENT[contentPointer++ % FOLLOW_CONTENT.length].replace("$1", message.data.uname));
+                break;
+            case 3:  // 分享
+            default:
+                break;
         }
     });
 
