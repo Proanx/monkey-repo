@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name            B站直播抽奖姬
-// @version         1.1.2
+// @version         1.1.3
 // @description     给主播用来的抽奖的
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
 // @icon            http://bilibili.com/favicon.ico
 // @grant           GM_addStyle
+// @run-at          document-start
 // @noframes
 // @require         https://greasyfork.org/scripts/434638-xfgryujk-s-bliveproxy/code/xfgryujk's%20bliveproxy.js?version=983438
 // ==/UserScript==
@@ -24,6 +25,7 @@
     var panelOffsetX, panelOffsetY, dragging = false, scrolled = false;
     var keyWord = null, playerLimit = Infinity;
     var skipFrame = false;
+    var logTimestamp = undefined;
 
     var timeout, intervalCount = 0, interval = setInterval(() => {
         let sideBar = document.querySelector(".side-bar-cntr");
@@ -65,15 +67,25 @@
             return;
         }
         player.set(uid, uname);
-        document.querySelector(".player-count").innerText = playerLimit == Infinity ? player.size : player.size + "/" + playerLimit;
-        let tbody = document.querySelector(".player-list-body");
-        let temp = document.createElement("tr");
-        temp.className = "list-row";
-        temp.innerHTML = `<td width="20%">${uname}</td><td width="20%">${uid}</td><td width="15%">${new Date(ts).toLocaleTimeString('chinese', { hour12: false })}</td><td width="40%">${content}<i class="btn-del icon" data-uid="${uid}"></i></td>`;
-        tbody.append(temp);
-        tbody.scrollTop += 26;
         if (playerLimit <= player.size) {
             stopBtnFunc();
+        }
+        if (logTimestamp && logTimestamp > Date.now()) {
+            setTimeout(showPlayer, logTimestamp - Date.now());
+            logTimestamp += 300;
+        } else {
+            showPlayer();
+        }
+
+        function showPlayer() {
+            logTimestamp = Date.now() + 300;
+            document.querySelector(".player-count").innerText = playerLimit == Infinity ? player.size : player.size + "/" + playerLimit;
+            let tbody = document.querySelector(".player-list-body");
+            let temp = document.createElement("tr");
+            temp.className = "list-row";
+            temp.innerHTML = `<td width="20%">${uname}</td><td width="20%">${uid}</td><td width="15%">${new Date(ts).toLocaleTimeString('chinese', { hour12: false })}</td><td width="40%">${content}<i class="btn-del icon" data-uid="${uid}"></i></td>`;
+            tbody.append(temp);
+            tbody.scrollTop += 26;
         }
     }
 
