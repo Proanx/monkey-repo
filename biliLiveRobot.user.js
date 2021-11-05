@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         自动弹幕
 // @namespace    http://tampermonkey.net/
-// @version      0.2.0
-// @description  你很有观察力!
+// @version      0.2.1
+// @description  九九专用的版本
 // @author       Pronax
 // @match        https://live.bilibili.com/23449607*
 // @icon         http://bilibili.com/favicon.ico
@@ -218,8 +218,9 @@ if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
     const BROADCAST_INTERVAL = 300000;   // 公告弹幕冷却
 
     const BROADCAST_CONTENT = [          //定时公告 
-        "关注主播可以点歌哦♡歌单在置顶动态",
-        "喜欢主播的可以加下交流群♡开播有通知哦",
+        "这么宝藏的主播还不关注吗♡",
+        "动态里面有歌单，欢迎点歌噢",
+        "喜欢主播的可以加下粉丝群♡开播有通知哦",
     ];
     const GUARD_CONTENT = [              //上舰感谢语 
         "感谢老板上船。这次！绝对不糊涂！",
@@ -230,13 +231,59 @@ if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
         "你的眼光很独到@$1",
         "关注了我们就是好朋友了！",
     ];
+    const ENTER_CONTENT = [             //入场弹幕
+        "哇@$1来啦，欢迎！",
+        "@$1来了，给大佬倒茶",
+        "欢迎小可爱@$1",
+        "@$1，欢迎入座，看到日落",
+    ];
 
     var count = 0;                       // 发送队列计数器
     var ts_send = 0;                     // 发送队列时间戳
     var contentPointer = 0;              // 内容指针
 
+    unsafeWindow.__isEnabled = {
+        pk: true,
+        enter: true,
+        guard: true,
+        follow: true,
+        broadcast: true,
+    };
+
+    GM_addStyle(".dd-control{ margin-left:50px;color: #fff;cursor: pointer;}.dd-control>*:first-child{border-left:0;}.dd-control>*{border-left:1px solid #666;user-select:none;padding: 3.5px 4px;vertical-align: middle;background-color:#ff314e}");
+
+    setTimeout(async () => {
+        let index = 0;
+        let funcName = ["PK", "入场", "上舰", "关注", "广播"];
+        let ele = document.createElement("div");
+        ele.classList.add("dd-control");
+        for (let key in unsafeWindow.__isEnabled) {
+            ele.innerHTML += `<b data-target="${key}">${funcName[index++]}</b>`;
+        }
+        ele.onclick = function (e) {
+            let target = e.target.getAttribute("data-target");
+            unsafeWindow.__isEnabled[target] = !unsafeWindow.__isEnabled[target];
+            e.target.style.backgroundColor = unsafeWindow.__isEnabled[target] ? "#ff314e" : "#309F2C";
+        }
+        document.querySelector(".left-ctnr").append(ele);
+    }, 3000);
+
+    // var countdown = 100;
+    // var interval = setInterval(() => {
+    //     if (document.querySelector(".right-ctnr")) {
+    //         clearInterval(interval);
+    //         let div = document.createElement('div');
+    //         div.innerHTML = `<div class="bili-robot-btn icon-ctnr live-skin-normal-a-text pointer" style="line-height: 16px;"><i class="v-middle icon-font icon-block-half" style="font-size: 16px;"></i><span class="action-text v-middle" style="font-size: 12px;">弹幕姬</span></div>`;
+    //         document.querySelector(".right-ctnr").prepend(div);
+    //     } else if (!countdown) {
+    //         clearInterval(interval);
+    //     }
+    //     countdown++;
+    // }, 100);
+
     // PK开始
     bliveproxy.addCommandHandler("PK_BATTLE_PRE_NEW", async (message) => {
+        if (!unsafeWindow.__isEnabled.pk) return;
         // 因为胜场不会每日清零，所以弃用
         // `https://api.live.bilibili.com/av/v1/Battle/anchorBattleRank?uid=${message.data.uid}&room_id=${message.data.room_id}`
         let dailyStreakRank = await ajax(`https://api.live.bilibili.com/xlive/general-interface/v1/battle/getDailyStreakRank?room_id=${message.data.room_id}&ruid=${message.data.uid}&season_id=${message.data.season_id}&need_current_info=1&page_size=1&page=1`, "GET", null);
@@ -255,18 +302,39 @@ if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
         }
     });
 
+    // SC
+    // bliveproxy.addCommandHandler("SUPER_CHAT_MESSAGE", message => {
+    //     // sendDanmu(GUARD_CONTENT[contentPointer++ % GUARD_CONTENT.length].replace("$1", message.data.username));
+    //     console.warn(message);
+    // });
+
     // 上舰
-    bliveproxy.addCommandHandler("GUARD_BUY", message => {
+    bliveproxy.addCommandHandler("USER_TOAST_MSG", message => {
+        if (!unsafeWindow.__isEnabled.guard) return;
         sendDanmu(GUARD_CONTENT[contentPointer++ % GUARD_CONTENT.length].replace("$1", message.data.username));
     });
+
+    var enterCount = new Map(), enterNotice = new Map(), enterCountGap = 300000;
 
     // 小字交互
     bliveproxy.addCommandHandler("INTERACT_WORD", message => {
         switch (message.data.msg_type) {
             case 1:  // 入场
-                // sendDanmu(`欢迎${message.data.uname}进入直播间`);
+                if (!unsafeWindow.__isEnabled.enter) return;
+                // 人数太多的时候就不发了
+                enterCount.set(message.data.uname, setTimeout(() => {
+                    enterCount.delete(message.data.uname);
+                }, enterCountGap));
+                if (enterCount.size < 5 && !enterNotice.get(message.data.uname)) {
+                    sendDanmu(ENTER_CONTENT[contentPointer++ % ENTER_CONTENT.length].replace("$1", message.data.uname), 0, () => {
+                        enterNotice.set(message.data.uname, setTimeout(() => {
+                            enterNotice.delete(message.data.uname);
+                        }, enterCountGap));
+                    });
+                }
                 break;
             case 2:  // 关注
+                if (!unsafeWindow.__isEnabled.follow) return;
                 sendDanmu(FOLLOW_CONTENT[contentPointer++ % FOLLOW_CONTENT.length].replace("$1", message.data.uname));
                 break;
             case 3:  // 分享
@@ -277,15 +345,14 @@ if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
 
     // 广播
     if (BROADCAST_CONTENT.length) {
-        setTimeout(() => {
+        setInterval(() => {
+            if (!unsafeWindow.__isEnabled.broadcast) return;
             broadcast();
-        }, 20000);
+        }, BROADCAST_INTERVAL);
     }
 
     function broadcast() {
-        sendDanmu(BROADCAST_CONTENT[contentPointer++ % BROADCAST_CONTENT.length], 0, () => {
-            setTimeout(broadcast, BROADCAST_INTERVAL);
-        });
+        sendDanmu(BROADCAST_CONTENT[contentPointer++ % BROADCAST_CONTENT.length]);
     }
 
     function sendDanmu(msg, reTryCount = 0, callback) {
@@ -305,7 +372,7 @@ if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
             "mode": 1,
             "fontsize": 25,
             "rnd": Date.now(),
-            "roomid": 23449607,
+            "roomid": __NEPTUNE_IS_MY_WAIFU__.roomInitRes.data.room_id,
             "csrf": JCT,
             "csrf_token": JCT
         }, function (result) {
