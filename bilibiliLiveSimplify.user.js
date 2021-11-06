@@ -184,7 +184,6 @@
 			}
 		}
 		return str ? str : "刚刚";
-
 	}
 
 	function showLastDanmaTime(item) {

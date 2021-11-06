@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name            Jav增强
 // @namespace       http://tampermonkey.net/
-// @version         0.1.3
+// @version         0.1.4
 // @description     try to take over the world!
 // @author          You
 // @match           *://www.javlibrary.com/cn/?v=*

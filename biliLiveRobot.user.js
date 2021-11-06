@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         自动弹幕
 // @namespace    http://tampermonkey.net/
-// @version      0.2.1
+// @version      0.2.2
 // @description  九九专用的版本
 // @author       Pronax
 // @match        https://live.bilibili.com/23449607*
@@ -208,6 +208,7 @@ if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
     'use strict';
 
     const JCT = document.cookie.match(/bili_jct=(\w*); /)[1];
+    const ROOM_ID = location.href.match(/\/(\d+)/)[1];
     const CHINESE_NUMBER = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
     const DANMU_LENGTH_LIMIT = 20;
 
@@ -372,7 +373,7 @@ if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
             "mode": 1,
             "fontsize": 25,
             "rnd": Date.now(),
-            "roomid": __NEPTUNE_IS_MY_WAIFU__.roomInitRes.data.room_id,
+            "roomid": ROOM_ID,
             "csrf": JCT,
             "csrf_token": JCT
         }, function (result) {
