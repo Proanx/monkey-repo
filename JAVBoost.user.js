@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name            Jav增强
 // @namespace       http://tampermonkey.net/
-// @version         0.1.2
+// @version         0.1.3
 // @description     try to take over the world!
 // @author          You
 // @match           *://www.javlibrary.com/cn/?v=*
@@ -27,12 +27,13 @@
     // https://cc3001.dmm.co.jp/litevideo/freepv/s/ssi/ssis00129/ssis00129_mhb_w.mp4
     // 1stars407
     // https://cc3001.dmm.co.jp/litevideo/freepv/1/1st/1stars00407/1stars00407_mhb_w.mp4
+    // https://cc3001.dmm.co.jp/litevideo/freepv/g/gvh/gvh314/gvh314_mhb_w.mp4
 
     GM_addStyle(".video-shadow{position:fixed;justify-content:center;align-items:center;display:none;z-index:100;top:0;right:0;bottom:0;left:0;margin:0;background:#00000066;opacity:1;}");
     GM_addStyle(".preview-video{width: 640px;}");
     $("body").append('<div class="video-shadow"><video class="preview-video" src="" controls="controls">您的浏览器不支持 video 标签。</video></div>');
 
-    var cid;
+    var cid, reTry = 0;
 
     $(".video-shadow").click(function () {
         $(".preview-video")[0].pause();
@@ -42,14 +43,18 @@
     $(".preview-video").click(function (e) {
         e.stopPropagation();
     }).error(function () {
-        if (!this.getAttribute("src")) { return; }
+        if (!this.getAttribute("src") || reTry++ > 1) { return; }
         let r = cid.match(/(\d*)([a-zA-Z]*)(\d*)/);
-        cid = "";
-        for (let i = 1; i < r.length; i++) {
-            cid += r[i];
-            if (i == 2) { cid += "00"; }
+        let url = "";
+        switch (reTry) {
+            case 0:
+                url = `https://cc3001.dmm.co.jp/litevideo/freepv/${cid[0]}/${cid.substr(0, 3)}/${r[2] + r[3]}/${r[2] + r[3]}_mhb_w.mp4`;
+                break;
+            case 1:
+                // url = `https://cc3001.dmm.co.jp/litevideo/freepv/${cid[0]}/${cid.substr(0, 3)}/${cid}/${cid}_mhb_w.mp4`;
+                alert("地址错误");
+                break;
         }
-        let url = `https://cc3001.dmm.co.jp/litevideo/freepv/${cid[0]}/${cid.substr(0, 3)}/${cid}/${cid}_mhb_w.mp4`;
         $(".preview-video").attr("src", url);
         $(".preview-video")[0].play();
     });
@@ -58,14 +63,6 @@
         $(".video-shadow").css("display", "flex");
         if ($(".preview-video").attr("src")) { return; }
         cid = $(this).attr("attr-data");
-        if (!cid.match(/^\d/)) {
-            let r = cid.match(/(\d*)([a-zA-Z]*)(\d*)/);
-            cid = "";
-            for (let i = 1; i < r.length; i++) {
-                cid += r[i];
-                if (i == 2) { cid += "00"; }
-            }
-        }
         let url = `https://cc3001.dmm.co.jp/litevideo/freepv/${cid[0]}/${cid.substr(0, 3)}/${cid}/${cid}_mhb_w.mp4`;
         $(".preview-video").attr("src", url);
         $(".preview-video")[0].play();
