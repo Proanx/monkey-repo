@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播抽奖姬
-// @version         1.2.1
+// @version         1.2.2
 // @description     给主播用来的抽奖的
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -99,7 +99,7 @@
                     data: winnerList,
                     keyWord: keyWord,
                     medalLimit: medalLimit,
-                    playerLimit: playerLimitm,
+                    playerLimit: playerLimit,
                     userLevelLimit: userLevelLimit,
                     medalLevelLimit: medalLevelLimit,
                 });
