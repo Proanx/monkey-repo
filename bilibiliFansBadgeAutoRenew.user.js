@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.4
+// @version      0.1.5
 // @description  作用于动态页面，一天一次，0时刷新，自动发弹幕领取首条亲密度奖励
 // @author       You
 // @match        https://t.bilibili.com/
@@ -89,7 +89,7 @@
             },
             success: function (result) {
                 console.log(result);
-                if (result.code == 1003 || (result.code == 0 && result.msg == "")) {
+                if (result.code == 10024 || (result.code == 0 && result.msg == "")) {
                     doneCount++;
                 } else {
                     failedList.set(roomId, times);

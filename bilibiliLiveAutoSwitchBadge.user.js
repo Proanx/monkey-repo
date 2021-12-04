@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播自动切换徽章
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2.2
 // @icon         http://bilibili.com/favicon.ico
 // @description  进直播间自动切换，关网页自动换回来
 // @author       Pronax
@@ -21,47 +21,59 @@
 	var medalId;
 	var originMedalId;
 
-	getMedalList();
+	getWearedMedal();
 
-	function getMedalList() {
+	function getWearedMedal() {
 		$.ajax({
-			url: "https://api.live.bilibili.com/fans_medal/v1/FansMedal/get_list_in_room",
+			url: "https://api.live.bilibili.com/live_user/v1/UserInfo/get_weared_medal",
+			method: "GET",
 			xhrFields: {
 				withCredentials: true //允许跨域带Cookie
 			},
-			success: async function (result) {
-				for (let i of result.data) {
-					if (i.icon_text == "佩戴中") {
-						originMedalId = i.medal_id;
-					}
-					if (i.room_id == roomId) {
-						medalId = i.medal_id;
-						if (i.icon_text != "佩戴中") {
-							await switchBadge(i.medal_id);
+			success: function (result) {
+				if (result.code == 0) {
+					originMedalId = result.data.medal_id;
+					getMedalList();
+				}
+			}
+		});
+	}
+
+	function getMedalList() {
+		$.ajax({
+			url: "https://api.live.bilibili.com/xlive/web-ucenter/user/MedalWall?target_id=2060727",
+			method: "GET",
+			xhrFields: {
+				withCredentials: true //允许跨域带Cookie
+			},
+			success: function (result) {
+				for (let i of result.data.list) {
+					let rid = i.link.match(/live\.bilibili\.com\/(\d+)/);
+					if (rid != null && rid[1] == roomId) {
+						medalId = i.medal_info.medal_id;
+						if (medalId != originMedalId) {
+							console.log(`现在带的是${originMedalId}，打算换成${medalId}`);
+							switchBadge(medalId);
 						}
-						document.querySelector("body").onfocus = ()=>{
+						document.querySelector("body").onfocus = () => {
 							if (medalId != GM_getValue("cBadge")) {
 								switchBadge(medalId);
 							}
 						};
-						window.addEventListener('beforeunload', (event) => {
-							console.log(555555);
-							originMedalId != medalId && switchBadge(originMedalId);
-						});
+						// window.addEventListener('beforeunload', (event) => {
+						// 	originMedalId != medalId && switchBadge(originMedalId);
+						// });
 						return;
 					}
 				}
-			},
-			error: function (e) {
-				console.log("发送弹幕失败：", e);
 			}
 		});
 	}
 
 	function switchBadge(badgeId) {
-		return new Promise((resolve,reject)=>{
+		return new Promise((resolve, reject) => {
 			let url = "https://api.live.bilibili.com/xlive/web-room/v1/fansMedal/wear";
-			if(!badgeId){
+			if (!badgeId) {
 				url = "https://api.live.bilibili.com/xlive/web-room/v1/fansMedal/take_off";
 			}
 			$.ajax({
@@ -76,10 +88,10 @@
 					withCredentials: true //允许跨域带Cookie
 				},
 				success: function (result) {
-					if (!result.code) {
+					console.log(result);
+					if (result.code == 0) {
 						GM_setValue("cBadge", badgeId);
 					}
-					console.log(result);
 					resolve();
 				},
 				error: function (e) {

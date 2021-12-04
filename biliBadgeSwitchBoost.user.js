@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
 // @namespace    http://tampermonkey.net/
-// @version      0.2
+// @version      0.2.2
 // @description  所有徽章都能看到了
 // @author       You
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -143,25 +143,31 @@
 
     unsafeWindow.addEventListener('ajaxLoadEnd', function (e) {
         if (e.detail.responseURL.indexOf("fans_medal/v1/FansMedal/get_list_in_room") > 0) {
-            let list = JSON.parse(e.detail.responseText).data;
             let body = document.querySelector(".medal-wear-body");
             body.innerHTML = "";
-            for (let item of list) {
-                let ele = document.createElement("button");
-                ele.className = "medal-item";
-                ele.setAttribute("data-medal_id", item.medal_id);
-                ele.innerHTML = `<div class="v-middle fans-medal-item" style="border-color:#${item.medal_color.toString(16)}"><div class="fans-medal-label" style="background-image:linear-gradient(45deg,#${item.medal_color_start.toString(16)},#${item.medal_color_end.toString(16)});"><span class="fans-medal-content">${item.medal_name}</span></div><div class="fans-medal-level" style="color:#${item.medal_color.toString(16)}">${item.level}</div></div><span class="name v-middle">${item.target_name}${item.live_stream_status ? '<span class="dp-i-block living-gif v-middle"></span>' : ''}</span><span class="text v-middle f-right"">${item.today_feed}/${item.day_limit}</span><div class="dp-i-block progress-level-div"><span class="dp-i-block level-span level-span-left">Lv.${item.level}</span><div class="dp-i-block progress-div"><span class="dp-i-block progress-num-span">${item.intimacy}/${item.next_intimacy}</span><div class="dp-i-block progress-div-cover" style="width: ${item.intimacy/item.next_intimacy*100}%;"><span class="dp-i-block progress-num-span-cover">${item.intimacy}/${item.next_intimacy}</span></div></div><span class="dp-i-block level-span">Lv.${item.level+1}</span></div>`;
-                ele.onclick = async function (e) {
-                    try {
-                        await switchBadge(this.getAttribute("data-medal_id"));
-                        document.querySelector(".medal-section>span").innerHTML = this.firstElementChild.outerHTML;
-                        toast();
-                    } catch (error) {
-                        console.log(error);
+            ajax("https://api.live.bilibili.com/xlive/web-ucenter/user/MedalWall?target_id=2060727", "GET", null,
+                function (result) {
+                    if (result.code == 0) {
+                        body.innerHTML = "";
+                        for (let item of result.data.list) {
+                            let ele = document.createElement("button");
+                            ele.className = "medal-item";
+                            ele.setAttribute("data-medal_id", item.medal_info.medal_id);
+                            ele.innerHTML = `<div class="v-middle fans-medal-item" style="border-color:#${item.medal_info.medal_color_border.toString(16)}"><div class="fans-medal-label" style="background-image:linear-gradient(45deg,#${item.medal_info.medal_color_start.toString(16)},#${item.medal_info.medal_color_end.toString(16)});"><span class="fans-medal-content">${item.medal_info.medal_name}</span></div><div class="fans-medal-level" style="color:#${item.medal_info.medal_color_start.toString(16)}">${item.medal_info.level}</div></div><span class="name v-middle">${item.target_name}${item.live_status == 1 ? '<span class="dp-i-block living-gif v-middle"></span>' : ''}</span><span class="text v-middle f-right"">${item.medal_info.today_feed}/${item.medal_info.day_limit}</span><div class="dp-i-block progress-level-div"><span class="dp-i-block level-span level-span-left">Lv.${item.medal_info.level}</span><div class="dp-i-block progress-div"><span class="dp-i-block progress-num-span">${item.medal_info.intimacy}/${item.medal_info.next_intimacy}</span><div class="dp-i-block progress-div-cover" style="width: ${item.medal_info.intimacy / item.medal_info.next_intimacy * 100}%;"><span class="dp-i-block progress-num-span-cover">${item.medal_info.intimacy}/${item.medal_info.next_intimacy}</span></div></div><span class="dp-i-block level-span">Lv.${item.medal_info.level + 1}</span></div>`;
+                            ele.onclick = async function (e) {
+                                try {
+                                    await switchBadge(this.getAttribute("data-medal_id"));
+                                    document.querySelector(".medal-section>span").innerHTML = this.firstElementChild.outerHTML;
+                                    toast();
+                                } catch (error) {
+                                    console.log(error);
+                                }
+                            }
+                            body.append(ele);
+                        }
                     }
                 }
-                body.append(ele);
-            }
+            );
         }
     });
 
@@ -171,7 +177,7 @@
             params.set("medal_id", badgeId);
             params.set("csrf_token", jct);
             params.set("csrf", jct);
-            ajax("https://api.live.bilibili.com/xlive/web-room/v1/fansMedal/wear", params,
+            ajax("https://api.live.bilibili.com/xlive/web-room/v1/fansMedal/wear", "POST", params,
                 function (result) {
                     if (result.message == "佩戴成功") {
                         resolve(true);
@@ -182,9 +188,9 @@
         });
     }
 
-    function ajax(url, data, callback) {
+    function ajax(url, method = "GET", data, callback) {
         var xhr = new XMLHttpRequest();
-        xhr.open("POST", url, true);
+        xhr.open(method, url, true);
         xhr.withCredentials = true;
         xhr.setRequestHeader('content-type', 'application/x-www-form-urlencoded');
         xhr.onreadystatechange = function () {
