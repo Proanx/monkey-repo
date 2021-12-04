@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         自动弹幕
-// @namespace    http://tampermonkey.net/
-// @version      0.2.2
-// @description  九九专用的版本
+// @namespace    http://pronax.tech/
+// @version      0.3.0
+// @description  dd专用的版本
 // @author       Pronax
-// @match        https://live.bilibili.com/23449607*
+// @match        https://live.bilibili.com/*
 // @icon         http://bilibili.com/favicon.ico
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -225,7 +225,7 @@ if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
     ];
     const GUARD_CONTENT = [              //上舰感谢语 
         "感谢老板上船。这次！绝对不糊涂！",
-        "欢迎加入九九的大航海，阿里嘎多",
+        "欢迎加入大航海，阿里嘎多",
         "友谊的小船说上就上！",
     ];
     const FOLLOW_CONTENT = [             //关注感谢语 
@@ -244,14 +244,14 @@ if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
     var contentPointer = 0;              // 内容指针
 
     unsafeWindow.__isEnabled = {
-        pk: true,
-        enter: true,
-        guard: true,
-        follow: true,
-        broadcast: true,
+        pk: false,
+        enter: false,
+        guard: false,
+        follow: false,
+        broadcast: false,
     };
 
-    GM_addStyle(".dd-control{ margin-left:50px;color: #fff;cursor: pointer;}.dd-control>*:first-child{border-left:0;}.dd-control>*{border-left:1px solid #666;user-select:none;padding: 3.5px 4px;vertical-align: middle;background-color:#ff314e}");
+    GM_addStyle(".dd-control{ margin-left:50px;color: #fff;cursor: pointer;}.dd-control>*:first-child{border-left:0;}.dd-control>*{border-left:1px solid #666;user-select:none;padding: 3.5px 4px;vertical-align: middle;background-color:#6DACEF}");
 
     setTimeout(async () => {
         let index = 0;
@@ -264,7 +264,7 @@ if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
         ele.onclick = function (e) {
             let target = e.target.getAttribute("data-target");
             unsafeWindow.__isEnabled[target] = !unsafeWindow.__isEnabled[target];
-            e.target.style.backgroundColor = unsafeWindow.__isEnabled[target] ? "#ff314e" : "#309F2C";
+            e.target.style.backgroundColor = unsafeWindow.__isEnabled[target] ? "#FF4F87" : "#6DACEF";
         }
         document.querySelector(".left-ctnr").append(ele);
     }, 3000);
