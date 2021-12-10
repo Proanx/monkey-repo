@@ -63,9 +63,10 @@
             url: "https://www.usd-cny.com/hv.js",   // 这家的汇率差的挺多的
             method: "get",
             onload: function (response) {
-                let index = response.responseText.indexOf("price[\n");
+                let text = response.responseText;
+                let index = text.indexOf("price[\n");
                 if (response.status == 200 && index >= 0) {
-                    let data = response.responseText.substr(index).replaceAll(/\r|\n/g, "");
+                    let data = text.slice(index,-1).replaceAll(/\r|\n|\s/g, "");
                     let price = new Object();
                     eval(data);
                     let timeUnix = Date.now();
