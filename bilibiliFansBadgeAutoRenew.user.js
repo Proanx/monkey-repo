@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.5
+// @version      0.1.6
 // @description  作用于动态页面，一天一次，0时刷新，自动发弹幕领取首条亲密度奖励
 // @author       You
 // @match        https://t.bilibili.com/
@@ -20,6 +20,13 @@
     var failedList = new Map();
 
     var emojiList = ["打卡(˘･_･˘)", "打卡(´ฅω•ฅ`)", "打卡(＃°Д°)", "打卡(´･ω･`)", "打卡_(:3」∠)_"];
+    var formData = new FormData();
+    formData.set("bubble", 0);
+    formData.set("color", 16777215);
+    formData.set("mode", 1);
+    formData.set("fontsize", 25);
+    formData.set("csrf", jct);
+    formData.set("csrf_token", jct);
 
     var curPage;
     var totalPages;
@@ -70,24 +77,17 @@
     function sendMsg(roomId) {
         let times = failedList.get(roomId) || 0;
         failedList.delete(roomId);
-        $.ajax({
-            url: "https://api.live.bilibili.com/msg/send",
-            type: "POST",
-            data: {
-                "bubble": 0,
-                "msg": roomId == 21470918 ? "王哥我爱你王哥" : emojiList[(Math.random() * 200 >> 1) % emojiList.length],
-                "color": 16777215,
-                "mode": 1,
-                "fontsize": 25,
-                "rnd": Math.round(new Date() / 1000) - 3,
-                "roomid": roomId,
-                "csrf": jct,
-                "csrf_token": jct
-            },
-            xhrFields: {
-                withCredentials: true //允许跨域带Cookie
-            },
-            success: function (result) {
+
+        formData.set("msg", roomId == 21470918 ? "王哥我爱你王哥" : emojiList[(Math.random() * 100 >> 0) % emojiList.length]);
+        formData.set("roomid", roomId);
+        formData.set("rnd", Math.floor(new Date() / 1000));
+        fetch("//api.live.bilibili.com/msg/send", {
+            credentials: 'include',
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.json())
+            .then(result => {
                 console.log(result);
                 if (result.code == 10024 || (result.code == 0 && result.msg == "")) {
                     doneCount++;
@@ -95,12 +95,12 @@
                     failedList.set(roomId, times);
                 }
                 afterDone();
-            },
-            error: function (e) {
-                console.log("发送弹幕失败：", e);
+            })
+            .catch(err => {
+                console.log("发送弹幕失败：", err);
                 alert("发送弹幕失败");
-            }
-        });
+            });
+
     }
 
     function afterDone() {
