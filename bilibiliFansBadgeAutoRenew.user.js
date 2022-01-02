@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.6
+// @version      0.1.7
 // @description  作用于动态页面，一天一次，0时刷新，自动发弹幕领取首条亲密度奖励
 // @author       You
 // @match        *://t.bilibili.com/*
@@ -15,7 +15,7 @@
 
     var jct = getJct();
 
-    var totalCount;
+    var curCount;
     var doneCount;
     var failedList = new Map();
 
@@ -40,7 +40,7 @@
 
     function init(page = 1) {
         $.ajax({
-            url: `https://api.live.bilibili.com/fans_medal/v5/live_fans_medal/iApiMedal?page=${page}&pageSize=10`,
+            url: `https://api.live.bilibili.com/xlive/app-ucenter/v1/user/GetMyMedals?page_size=10&page=${page}`,
             xhrFields: {
                 withCredentials: true //允许跨域带Cookie
             },
@@ -51,13 +51,13 @@
                     return;
                 }
                 doneCount = 0;
-                totalCount = result.data.fansMedalList.length;
-                curPage = result.data.pageinfo.curPage;
-                totalPages = result.data.pageinfo.totalpages;
-                let count = 0;
-                for (let i of result.data.fansMedalList) {
+                curCount = result.data.items.length;
+                curPage = result.data.page_info.cur_page;
+                totalPages = result.data.page_info.total_page;
+                let count = 1;
+                for (let i of result.data.items) {
                     if (i.today_feed < 100) {
-                        console.log(`预计 ${count * 1500} 毫秒后给 ${i.target_name} 发送弹幕`);
+                        console.log(`预计 ${count * 3} 秒后给 ${i.target_name} 发送弹幕`);
                         setTimeout(() => {
                             sendMsg(i.roomid);
                         }, count++ * 3000);
@@ -104,8 +104,8 @@
     }
 
     function afterDone() {
-        if (doneCount + failedList.size == totalCount) {
-            if (doneCount == totalCount) {
+        if (doneCount + failedList.size == curCount) {
+            if (doneCount == curCount) {
                 if (curPage >= totalPages) {
                     console.log('都搞定了');
                     GM_setValue("timestamp", new Date().toLocaleDateString());
