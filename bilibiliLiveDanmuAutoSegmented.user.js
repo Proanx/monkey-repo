@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         b站直播聊天室去除字数限制
 // @namespace    http://tampermonkey.net/
-// @version      0.2.0
+// @version      0.2.1
 // @description  原理是分开发送。接管了发送框，会提示屏蔽词
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
 // @icon         http://bilibili.com/favicon.ico
 // @grant        GM_addStyle
+// @run-at		 document-end
 // @require      https://cdn.staticfile.org/jquery/1.12.4/jquery.min.js
 // ==/UserScript==
 
@@ -15,7 +16,7 @@
 
 	const LIMIT = 20;
 	var jct = document.cookie.match(/bili_jct=(\w*); /) && document.cookie.match(/bili_jct=(\w*); /)[1];
-	var roomId = location.href.match(/\/(\d+)/)[1];
+	var roomId = __NEPTUNE_IS_MY_WAIFU__.roomInitRes.data.room_id;
 	var toastCount = 0;
 	var isProcessing = false;
 	var formData = new FormData();
