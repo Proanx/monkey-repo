@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.8
+// @version      0.1.9
 // @description  作用于动态页面，一天一次，0时刷新，自动发弹幕领取首条亲密度奖励
 // @author       You
 // @match        *://t.bilibili.com/*
@@ -59,16 +59,13 @@
                 for (let i of result.data.items) {
                     if (i.today_feed < 100) {
                         if (!realRoomid[i.target_id]) {
-                            $.ajax({
-                                url: `https://api.live.bilibili.com/room/v2/Room/room_id_by_uid?uid=${i.target_id}`,
-                                success: function (json) {
-                                    if(json.code==0){
-                                        realRoomid[i.target_id] = i.roomid = json.data.room_id;
-                                        GM_setValue("realRoom",realRoomid);
-                                    }
-                                }
-                            });
-                        }else{
+                            let res = await fetch(`https://api.live.bilibili.com/room/v2/Room/room_id_by_uid?uid=${i.target_id}`);
+                            let json = await res.json();
+                            if (json.code == 0) {
+                                realRoomid[i.target_id] = i.roomid = json.data.room_id;
+                                GM_setValue("realRoom", realRoomid);
+                            }
+                        } else {
                             i.roomid = realRoomid[i.target_id];
                         }
                         console.log(`预计 ${count * 3} 秒后给 ${i.target_name} 发送弹幕`);
