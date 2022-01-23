@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播通知
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.1.1
 // @description  需要有至少一个b站页面开在后台，在有页面常驻的情况下提醒延迟不超过3分钟
 // @author       Pronax
 // @match        https://*.bilibili.com/*
@@ -9,6 +9,7 @@
 // @grant        GM_deleteValue
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_openInTab
 // @noframes
 // ==/UserScript==
 
@@ -119,7 +120,10 @@
 			icon: avatar,
 			body: nickname + "正在直播"
 		}).onclick = function () {
-			window.open(link);
+			GM_openInTab(link,{
+				"active":true,
+				"insert":true
+			});
 		};
 	}
 
