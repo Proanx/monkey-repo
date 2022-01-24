@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室去除字数限制
 // @namespace    http://tampermonkey.net/
-// @version      0.2.1
+// @version      0.2.2
 // @description  原理是分开发送。接管了发送框，会提示屏蔽词
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -119,12 +119,14 @@
 				})
 					.then(response => response.json())
 					.then(result => {
-						if (result.code != 0) {
+						if (result.code != 0 || result.msg != "") {
 							switch (result.msg) {
 								case "f":
 								case "fire":
 									result.msg = "含有敏感词";
 									break;
+								case "k":
+									result.msg = "房间屏蔽词";
 							}
 							toast(result.msg);
 							isProcessing = false;
