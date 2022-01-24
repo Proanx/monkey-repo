@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.9
+// @version      0.1.11
 // @description  作用于动态页面，一天一次，0时刷新，自动发弹幕领取首条亲密度奖励
 // @author       You
 // @match        *://t.bilibili.com/*
@@ -20,6 +20,9 @@
     var failedList = new Map();
 
     var realRoomid = GM_getValue("realRoom") || {};
+    var customDanmu = {
+        21470918: "王哥我爱你王哥",
+    };
     var emojiList = ["打卡(˘･_･˘)", "打卡(´ฅω•ฅ`)", "打卡(＃°Д°)", "打卡(´･ω･`)", "打卡_(:3」∠)_"];
     var formData = new FormData();
     formData.set("bubble", 0);
@@ -40,12 +43,11 @@
     }, 1000);
 
     function init(page = 1) {
-        $.ajax({
-            url: `https://api.live.bilibili.com/xlive/app-ucenter/v1/user/GetMyMedals?page_size=10&page=${page}`,
-            xhrFields: {
-                withCredentials: true //允许跨域带Cookie
-            },
-            success: function (result) {
+        fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/user/GetMyMedals?page_size=10&page=${page}`, {
+            credentials: 'include'
+        })
+            .then(response => response.json())
+            .then(async result => {
                 if (result.code) {
                     alert("获取徽章失败");
                     console.log("获取徽章失败：", result);
@@ -59,10 +61,9 @@
                 for (let i of result.data.items) {
                     if (i.today_feed < 100) {
                         if (!realRoomid[i.target_id]) {
-                            let res = await fetch(`https://api.live.bilibili.com/room/v2/Room/room_id_by_uid?uid=${i.target_id}`);
-                            let json = await res.json();
-                            if (json.code == 0) {
-                                realRoomid[i.target_id] = i.roomid = json.data.room_id;
+                            let rid = await getRid(i.target_id);
+                            if (rid != null) {
+                                realRoomid[i.target_id] = i.roomid = rid;
                                 GM_setValue("realRoom", realRoomid);
                             }
                         } else {
@@ -77,11 +78,28 @@
                     }
                     afterDone();
                 }
-            },
-            error: function (e) {
+            })
+            .catch(e => {
                 alert("获取徽章失败");
                 console.log("获取徽章失败：", e);
-            }
+            });
+    }
+
+    async function getRid(target_id) {
+        return new Promise((resolve, reject) => {
+            fetch(`https://api.live.bilibili.com/room/v2/Room/room_id_by_uid?uid=${target_id}`)
+                .then(response => response.json())
+                .then(json => {
+                    if (json.code == 0) {
+                        resolve(json.data.room_id);
+                    } else {
+                        reject(json);
+                    }
+                })
+                .catch(err => {
+                    console.log(err);
+                    reject(err);
+                });
         });
     }
 
@@ -89,7 +107,7 @@
         let times = failedList.get(roomId) || 0;
         failedList.delete(roomId);
 
-        formData.set("msg", emojiList[(Math.random() * 100 >> 0) % emojiList.length]);
+        formData.set("msg", customDanmu[roomId] || emojiList[(Math.random() * 100 >> 0) % emojiList.length]);
         formData.set("roomid", roomId);
         formData.set("rnd", Math.floor(new Date() / 1000));
         fetch("//api.live.bilibili.com/msg/send", {
