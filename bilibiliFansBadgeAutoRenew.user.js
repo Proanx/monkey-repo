@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.11
+// @version      0.1.12
 // @description  作用于动态页面，一天一次，0时刷新，自动发弹幕领取首条亲密度奖励
 // @author       You
 // @match        *://t.bilibili.com/*
@@ -20,10 +20,11 @@
     var failedList = new Map();
 
     var realRoomid = GM_getValue("realRoom") || {};
-    var customDanmu = {
+    var customDanmu = {     // 自定义打卡文字
+        // 真实房间号
         21470918: "王哥我爱你王哥",
     };
-    var emojiList = ["打卡(˘･_･˘)", "打卡(´ฅω•ฅ`)", "打卡(＃°Д°)", "打卡(´･ω･`)", "打卡_(:3」∠)_"];
+    var emojiList = ["打卡(｡･ω･｡)", "打卡⊙ω⊙", "打卡( ˘•ω•˘ )", "打卡(〃∀〃)", "打卡(´･_･`)", "打卡ᶘ ᵒᴥᵒᶅ", "打卡(づ◡ど)", "打卡(=^･ｪ･^=)", "打卡｜д•´)!!", "打卡 ( ´･ᴗ･` ) ", "打卡ヾ(●´∇｀●)ﾉ", "打卡ヾ(❀╹◡╹)ﾉ~", "打卡( ✿＞◡❛)", "打卡( ・◇・)", "打卡վ'ᴗ' ի"];
     var formData = new FormData();
     formData.set("bubble", 0);
     formData.set("color", 16777215);
@@ -91,6 +92,7 @@
                 .then(response => response.json())
                 .then(json => {
                     if (json.code == 0) {
+                        console.log("获取房间号", json);
                         resolve(json.data.room_id);
                     } else {
                         reject(json);
@@ -104,10 +106,10 @@
     }
 
     function sendMsg(roomId) {
+        let msg;
         let times = failedList.get(roomId) || 0;
         failedList.delete(roomId);
-
-        formData.set("msg", customDanmu[roomId] || emojiList[(Math.random() * 100 >> 0) % emojiList.length]);
+        formData.set("msg", customDanmu[roomId] || (msg = emojiList[(Math.random() * 100 >> 0) % emojiList.length], msg));
         formData.set("roomid", roomId);
         formData.set("rnd", Math.floor(new Date() / 1000));
         fetch("//api.live.bilibili.com/msg/send", {
@@ -117,10 +119,12 @@
         })
             .then(response => response.json())
             .then(result => {
-                console.log(result);
+                console.log(roomId, result);
+                // 10024: 拉黑
                 if (result.code == 10024 || (result.code == 0 && result.msg == "")) {
                     doneCount++;
                 } else {
+                    if (result.msg == "k" && times == 0) { customDanmu[roomId] = msg.replace("打卡", ""); }
                     failedList.set(roomId, times);
                 }
                 afterDone();
