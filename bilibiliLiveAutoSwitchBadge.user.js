@@ -16,6 +16,7 @@
 (function () {
 	'use strict';
 
+	// 存在短位房间号时会失效
 	var roomId = location.href.match(/live.bilibili.com\/(\d+)/)[1];
 	var jct = getJct();
 	var medalId;

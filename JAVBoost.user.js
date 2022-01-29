@@ -27,7 +27,10 @@
     // https://cc3001.dmm.co.jp/litevideo/freepv/s/ssi/ssis00129/ssis00129_mhb_w.mp4
     // 1stars407
     // https://cc3001.dmm.co.jp/litevideo/freepv/1/1st/1stars00407/1stars00407_mhb_w.mp4
+    // gvh314
     // https://cc3001.dmm.co.jp/litevideo/freepv/g/gvh/gvh314/gvh314_mhb_w.mp4
+    // HR-001
+    // https://cc3001.dmm.co.jp/litevideo/freepv/h/h_1/h_113hr00001/h_113hr00001_mhb_w.mp4
 
     GM_addStyle(".video-shadow{position:fixed;justify-content:center;align-items:center;display:none;z-index:100;top:0;right:0;bottom:0;left:0;margin:0;background:#00000066;opacity:1;}");
     GM_addStyle(".preview-video{width: 640px;}");
