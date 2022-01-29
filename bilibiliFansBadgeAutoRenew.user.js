@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.12
+// @version      0.1.15
 // @description  作用于动态页面，一天一次，0时刷新，自动发弹幕领取首条亲密度奖励
-// @author       You
+// @author       Pronax
 // @match        *://t.bilibili.com/*
 // @icon         http://bilibili.com/favicon.ico
 // @grant        GM_setValue
@@ -13,11 +13,15 @@
 (function () {
     'use strict';
 
-    var jct = getJct();
+    const LOGIN_USER_ID = document.cookie.match(/DedeUserID=(\d*);/) && document.cookie.match(/DedeUserID=(\d*);/)[1];
+    const JCT = getJct();
 
-    var curCount;
-    var doneCount;
+    if (!LOGIN_USER_ID) { return; }
+
     var failedList = new Map();
+    var awaitList = new Set();
+    var readyCount = 0;
+    var totalCount = 0;
 
     var realRoomid = GM_getValue("realRoom") || {};
     var customDanmu = {     // 自定义打卡文字
@@ -30,11 +34,8 @@
     formData.set("color", 16777215);
     formData.set("mode", 1);
     formData.set("fontsize", 25);
-    formData.set("csrf", jct);
-    formData.set("csrf_token", jct);
-
-    var curPage;
-    var totalPages;
+    formData.set("csrf", JCT);
+    formData.set("csrf_token", JCT);
 
     setTimeout(() => {
         if (GM_getValue("timestamp") != new Date().toLocaleDateString()) {
@@ -43,8 +44,8 @@
         }
     }, 1000);
 
-    function init(page = 1) {
-        fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/user/GetMyMedals?page_size=10&page=${page}`, {
+    function init() {
+        fetch(`https://api.live.bilibili.com/xlive/web-ucenter/user/MedalWall?target_id=${LOGIN_USER_ID}`, {
             credentials: 'include'
         })
             .then(response => response.json())
@@ -54,31 +55,34 @@
                     console.log("获取徽章失败：", result);
                     return;
                 }
-                doneCount = 0;
-                curCount = result.data.items.length;
-                curPage = result.data.page_info.cur_page;
-                totalPages = result.data.page_info.total_page;
                 let count = 1;
-                for (let i of result.data.items) {
-                    if (i.today_feed < 100) {
-                        if (!realRoomid[i.target_id]) {
-                            let rid = await getRid(i.target_id);
+                totalCount = result.data.count;
+                for (let i of result.data.list) {
+                    if (i.medal_info.today_feed < 100) {
+                        if (i.live_status == 1) {   // 0:没播   1:开播  2:录播
+                            console.log(`${i.target_name}正在直播，没有打卡`);
+                            awaitList.add(i);
+                            continue;
+                        }
+                        let uid = i.medal_info.target_id;
+                        if (!realRoomid[uid]) {
+                            let rid = await getRid(uid);
                             if (rid != null) {
-                                realRoomid[i.target_id] = i.roomid = rid;
+                                realRoomid[uid] = rid;
                                 GM_setValue("realRoom", realRoomid);
+                            } else {
+                                continue;
                             }
-                        } else {
-                            i.roomid = realRoomid[i.target_id];
                         }
                         console.log(`预计 ${count * 3} 秒后给 ${i.target_name} 发送弹幕`);
                         setTimeout(() => {
-                            sendMsg(i.roomid);
+                            sendMsg(realRoomid[uid]);
                         }, count++ * 3000);
                     } else {
-                        doneCount++;
+                        readyCount++;
                     }
-                    afterDone();
                 }
+                afterDone();
             })
             .catch(e => {
                 alert("获取徽章失败");
@@ -91,16 +95,16 @@
             fetch(`https://api.live.bilibili.com/room/v2/Room/room_id_by_uid?uid=${target_id}`)
                 .then(response => response.json())
                 .then(json => {
+                    console.log("获取房间号", json);
                     if (json.code == 0) {
-                        console.log("获取房间号", json);
                         resolve(json.data.room_id);
                     } else {
-                        reject(json);
+                        resolve(null);
                     }
                 })
                 .catch(err => {
-                    console.log(err);
-                    reject(err);
+                    console.log("获取房间号错误", err);
+                    resolve(null);
                 });
         });
     }
@@ -121,11 +125,25 @@
             .then(result => {
                 console.log(roomId, result);
                 // 10024: 拉黑
-                if (result.code == 10024 || (result.code == 0 && result.msg == "")) {
-                    doneCount++;
-                } else {
-                    if (result.msg == "k" && times == 0) { customDanmu[roomId] = msg.replace("打卡", ""); }
-                    failedList.set(roomId, times);
+                // 1003: 禁言
+                // -403: 主播设置了发言门槛
+                switch (result.code) {
+                    case 0:
+                        if (result.msg != "") {
+                            if (result.msg == "k" && times == 0) {
+                                customDanmu[roomId] = msg.replace("打卡", "");
+                            }
+                            failedList.set(roomId, times);
+                            break;
+                        }
+                    case -403:
+                    case 1003:
+                    case 10024:
+                        readyCount++;
+                        break;
+                    default:
+                        failedList.set(roomId, times);
+                        break;
                 }
                 afterDone();
             })
@@ -137,27 +155,22 @@
     }
 
     function afterDone() {
-        if (doneCount + failedList.size == curCount) {
-            if (doneCount == curCount) {
-                if (curPage >= totalPages) {
-                    console.log('都搞定了');
-                    GM_setValue("timestamp", new Date().toLocaleDateString());
-                } else {
-                    init(++curPage);
-                }
-                return;
-            }
+        if (readyCount + failedList.size + awaitList.size != totalCount) { return; }
+        if (failedList.size != 0) {
             for (let i of failedList) {
                 let count = 1;
                 if (i[1] <= 2) {
                     failedList.set(i[0], ++i[1]);
                     setTimeout(() => {
                         sendMsg(i[0]);
-                    }, count++ * 3000);
+                    }, count++ * 5000);
                 } else {
                     console.log("发送失败", i[0]);
                 }
             }
+        } else if (awaitList.size == 0) {
+            console.log('都搞定了');
+            GM_setValue("timestamp", new Date().toLocaleDateString());
         }
     }
 
