@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.1.1
+// @version         0.1.2
 // @description     会在进房间以后的下一次发红包时开始生效
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -69,7 +69,7 @@
         console.log(message);
         for (let winner of message.data.winner_info) {
             if (__NEPTUNE_IS_MY_WAIFU__.userLabInfo.data.uid == winner.uid) {
-                showMessage(`抽中了${winner.award_name} *${winner.gift_num}个！`, "success", "中奖啦！", 50);
+                showMessage(`抽中了${winner.award_name} *${winner.gift_num}个！`, "success", "中奖啦！", false);
                 return;
             }
         }
