@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播通知
 // @namespace    http://tampermonkey.net/
-// @version      0.1.2
+// @version      0.1.3
 // @description  需要有至少一个b站页面开在后台，在有页面常驻的情况下提醒延迟不超过3分钟
 // @author       Pronax
 // @match        https://*.bilibili.com/*
@@ -18,6 +18,11 @@
 	'use strict';
 
 	const TAB_ID = giveMeAName();
+	// 单位都是ms
+	const CONSUMER_LOOP_TERM = 90000;
+	const RETRY_LOOP_TERM = CONSUMER_LOOP_TERM * 0.7;
+	const LIST_EXPIRE_TIME = CONSUMER_LOOP_TERM * 5.0;
+	const CONSUMER_EXPIRE_TIME = CONSUMER_LOOP_TERM * 1.3;
 
 	var isConsumer = false;
 
@@ -27,61 +32,49 @@
 
 	var interval;
 
-	// 单位都是ms
-	var consumerExpireTime = 240000;
-	var listExpireTime = 840000;
-	var consumerLoopTerm = 180000;
-	var reEntryLoopTerm = 125000;
-
 	// 怪火狐去吧
-	document.querySelector("body").addEventListener('click',requestPermission);
-	function requestPermission(e){
-		document.querySelector("body").removeEventListener('click',requestPermission);
+	document.querySelector("body").addEventListener('click', requestPermission);
+	function requestPermission(e) {
+		document.querySelector("body").removeEventListener('click', requestPermission);
 		if (Notification.permission == "default") {
 			Notification.requestPermission();
 		}
 	}
 
 	window.addEventListener('beforeunload', (event) => {
-		isConsumer && heartbeat(Date.now() - consumerExpireTime);
+		// 把心跳设为过去，使其他页面的下一次尝试必定推翻生产者
+		isConsumer && heartbeat(Date.now() - CONSUMER_EXPIRE_TIME);
 	});
+
+	if (typeof (__NEPTUNE_IS_MY_WAIFU__) != 'undefined') {
+		updateBlockList(__NEPTUNE_IS_MY_WAIFU__.roomInitRes.data.uid);
+	}
 
 	init();
 
 	function init() {
 		try {
-			if(typeof(__NEPTUNE_IS_MY_WAIFU__)!='undefined'){
-				updateBlockList(__NEPTUNE_IS_MY_WAIFU__.roomInitRes.data.uid);
-			}
-			console.log("开始尝试竞争锁");
 			let consumer = tryConsumer();
-			console.log("竞争成功");
-			if (consumer && Date.now() - consumer.lastHeartbeat <= listExpireTime) {
-				console.log("旧数据有效");
+			if (consumer && Date.now() - consumer.lastHeartbeat <= LIST_EXPIRE_TIME) {
 			} else {
-				console.log("数据过期，重新获取新数据");
 				GetLiveList(true);
 			}
-			console.log("开始执行生产计划，预计在" + new Date(Date.now() + consumerLoopTerm).toLocaleString());
 			clearCountdown(interval);
 			interval = setInterval(() => {
-				console.log("进入生产");
 				if (isConsumer && heartbeat()) {
-					console.log("生产成功，下一次生产会在：", new Date(Date.now() + consumerLoopTerm).toLocaleString());
 					GetLiveList();
 				} else {
-					console.log("被踢出产线");
 					isConsumer = false;
 					changeTabTitle();
 					throw new Error("无生产权限");
 				}
-			}, consumerLoopTerm);
+			}, CONSUMER_LOOP_TERM);
 		} catch (error) {
-			console.log(error.message + ",预计在" + new Date(Date.now() + reEntryLoopTerm).toLocaleString() + "重新尝试");
+			console.log(error.message + ",预计在" + new Date(Date.now() + RETRY_LOOP_TERM).toLocaleString() + "重新尝试");
 			clearCountdown(interval);
 			interval = setTimeout(() => {
 				init();
-			}, reEntryLoopTerm);
+			}, RETRY_LOOP_TERM);
 		}
 	}
 
@@ -90,14 +83,16 @@
 			onlineList = getList("onlineList");
 			blockList = getList("blockList");
 			if (result.code == result.message) {
+				let newList = new Set();
 				for (let item of result.data.items) {
 					if (!(isInit || onlineList.has(item.uid) || blockList.has(item.uid))) {
 						console.log("发送" + item.uname + "的开播通知");
 						notify(item.uid, item.uname, item.title, item.face, item.link);
 					}
-					onlineList.add(item.uid);
-					blockList.delete(item.uid);
+					newList.add(item.uid);
 				}
+				onlineList = newList;
+				blockList.clear();
 				saveList();
 			}
 		});
@@ -123,23 +118,20 @@
 			icon: avatar,
 			body: nickname + "正在直播"
 		}).onclick = function () {
-			GM_openInTab(link,{
-				"active":true,
-				"insert":true
+			GM_openInTab(link, {
+				"active": true,
+				"insert": true
 			});
 		};
 	}
 
 	function heartbeat(timestamp = Date.now()) {
-		console.log("开始更新心跳");
 		let consumer = GM_getValue("consumer");
 		if (consumer && consumer.name == TAB_ID) {
-			console.log("心跳更新成功");
 			GM_setValue("consumer", { "name": TAB_ID, "lastHeartbeat": timestamp });
 			changeTabTitle();
 			return true;
 		}
-		console.log("无法更新心跳");
 		isConsumer = false;
 		changeTabTitle();
 		return false;
@@ -147,8 +139,8 @@
 
 	function tryConsumer() {
 		let consumer = GM_getValue("consumer");
-		if (consumer && consumer.name != TAB_ID && Date.now() - consumer.lastHeartbeat <= consumerExpireTime) {
-			console.log("已存在消费者且未过期，过期时间：", (consumerExpireTime - (Date.now() - consumer.lastHeartbeat)) / 1000);
+		if (consumer && consumer.name != TAB_ID && Date.now() - consumer.lastHeartbeat <= CONSUMER_EXPIRE_TIME) {
+			console.log("已存在消费者且未过期，过期时间：", (CONSUMER_EXPIRE_TIME - (Date.now() - consumer.lastHeartbeat)) / 1000);
 			changeTabTitle();
 			throw new Error("已有线程正在生产");
 		}
@@ -164,12 +156,12 @@
 		return new Set(list);
 	}
 
-	function saveList(name) {
+	function saveList() {
 		GM_setValue("onlineList", Array.from(onlineList).toString());
 		GM_setValue("blockList", Array.from(blockList).toString());
 	}
-	
-	function updateBlockList(uid){
+
+	function updateBlockList(uid) {
 		let list = getList("blockList");
 		list.add(uid);
 		GM_setValue("blockList", Array.from(list).toString());
