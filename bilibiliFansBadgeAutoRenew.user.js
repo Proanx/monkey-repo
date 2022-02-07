@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.16
+// @version      0.1.17
 // @description  作用于动态页面，一天一次，0时刷新，自动发弹幕领取首条亲密度奖励
 // @author       Pronax
 // @match        *://t.bilibili.com/*
@@ -77,7 +77,7 @@
                         }
                         console.log(`预计 ${count * 3} 秒后给 ${i.target_name} 发送弹幕`);
                         setTimeout(() => {
-                            sendMsg(realRoomid[uid]);
+                            sendMsg(i);
                         }, count++ * 3000);
                     } else {
                         readyCount++;
@@ -110,9 +110,10 @@
         });
     }
 
-    function sendMsg(roomId) {
+    function sendMsg(item) {
         let msg;
-        let times = failedList.get(roomId) || 0;
+        let roomId = realRoomid[item.medal_info.target_id];
+        let times = failedList.get(item) || 0;
         failedList.delete(roomId);
         formData.set("msg", customDanmu[roomId] || (msg = emojiList[(Math.random() * 100 >> 0) % emojiList.length], msg));
         formData.set("roomid", roomId);
@@ -134,16 +135,21 @@
                             if (result.msg == "k" && times == 0) {
                                 customDanmu[roomId] = msg.replace("打卡", "");
                             }
-                            failedList.set(roomId, times);
+                            failedList.set(item, times);
                             break;
                         }
-                    case -403:
                     case 1003:
                     case 10024:
                         readyCount++;
                         break;
+                    case -403:
+                        if (times == 0) {
+                            // 换对应牌子重试
+                            wearMedal(item.medal_info.medal_id);
+                            times += 2;
+                        }
                     default:
-                        failedList.set(roomId, times);
+                        failedList.set(item, times);
                         break;
                 }
                 afterDone();
@@ -153,6 +159,18 @@
                 alert("发送弹幕失败");
             });
 
+    }
+
+    function wearMedal(medal_id) {
+        let params = new FormData();
+        params.set("medal_id", medal_id);
+        params.set("csrf_token", JCT);
+        params.set("csrf", JCT);
+        fetch("https://api.live.bilibili.com/xlive/web-room/v1/fansMedal/wear", {
+            credentials: "include",
+            method: 'POST',
+            body: params
+        });
     }
 
     function afterDone() {
