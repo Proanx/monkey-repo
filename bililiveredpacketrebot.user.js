@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.1.6
+// @version         0.1.7
 // @description     会在进房间以后的下一次发红包时开始生效
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -74,44 +74,50 @@
                 } else {
                     notice = showMessage(`坐等 ${message.data.sender_name} 的红包开奖<br>红包ID：${message.data.lot_id}`, "info", "啊哈哈哈哈哈哈，红包来咯", message.data.last_time * 10);
                     if (!followed) {
-                        let body = new FormData();
-                        body.set("fids", ROOM_USER_ID);
-                        body.set("tagids", "436090");
-                        body.set("csrf", JCT);
-                        fetch("https://api.bilibili.com/x/relation/tags/addUsers?cross_domain=true", {
-                            credentials: 'include',
-                            method: 'POST',
-                            body: body
-                        });
-                        window.addEventListener('beforeunload', (event) => {
-                            let data = new FormData();
-                            data.set("act", "2");
-                            data.set("csrf", JCT);
-                            data.set("re_src", "11");
-                            data.set("jsonp", "jsonp");
-                            data.set("fid", ROOM_USER_ID);
-                            data.set("spmid", "333.999.0.0");
-                            data.set("extend_content", `{ "entity": "user", "entity_id": ${ROOM_USER_ID} }`);
-                            fetch("https://api.bilibili.com/x/relation/modify", {
-                                credentials: "include",
-                                method: 'POST',
-                                body: data
-                            });
-                        });
-                        followed = true;
+                        setTimeout(unfollow, 3000);
                     }
                 }
             });
     }
 
+    function unfollow() {
+        fetch(`https://api.bilibili.com/x/relation/tag/user?fid=${ROOM_USER_ID}&jsonp=jsonp&_=${Date.now()}`, {
+            "credentials": "include"
+        })
+            .then(res => res.text())
+            .then(result => {
+                let json = JSON.parse(result);
+                if (Object.keys(json.data).length == 0) {
+                    let data = new FormData();
+                    data.set("act", "2");
+                    data.set("csrf", JCT);
+                    data.set("re_src", "11");
+                    data.set("jsonp", "jsonp");
+                    data.set("fid", ROOM_USER_ID);
+                    data.set("spmid", "333.999.0.0");
+                    data.set("extend_content", `{ "entity": "user", "entity_id": ${ROOM_USER_ID} }`);
+                    fetch("https://api.bilibili.com/x/relation/modify", {
+                        credentials: "include",
+                        method: 'POST',
+                        body: data
+                    })
+                        .then(res => res.json())
+                        .then(json => {
+                            console.log(json);
+                        });
+                }
+            });
+    }
+
     function radPacketWinner(message) {
-        console.log(message);
         for (let winner of message.data.winner_info) {
             if (__NEPTUNE_IS_MY_WAIFU__.userLabInfo.data.uid == winner.uid) {
-                notice && parseInt(notice.querySelector(".noticejs-bar").style.width) > 5 && notice.remove();
                 showMessage(`抽中了${winner.award_name} *${winner.gift_num}个！`, "success", "中奖啦！", false);
                 return;
             }
+        }
+        if (!followed) {
+            unfollow();
         }
     }
 
