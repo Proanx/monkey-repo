@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.17
+// @version      0.1.18
 // @description  作用于动态页面，一天一次，0时刷新，自动发弹幕领取首条亲密度奖励
 // @author       Pronax
 // @match        *://t.bilibili.com/*
@@ -60,11 +60,11 @@
                 totalCount = result.data.count;
                 for (let i of result.data.list) {
                     if (i.medal_info.today_feed < 100) {
-                        if (i.live_status == 1) {   // 0:没播   1:开播  2:录播
-                            console.log(`${i.target_name}正在直播，没有打卡`);
-                            awaitList.add(i);
-                            continue;
-                        }
+                        // if (i.live_status == 1) {   // 0:没播   1:开播  2:录播
+                        //     console.log(`${i.target_name}正在直播，没有打卡`);
+                        //     awaitList.add(i);
+                        //     continue;
+                        // }
                         let uid = i.medal_info.target_id;
                         if (!realRoomid[uid]) {
                             let rid = await getRid(uid);
@@ -110,10 +110,14 @@
         });
     }
 
-    function sendMsg(item) {
+    async function sendMsg(item) {
         let msg;
         let roomId = realRoomid[item.medal_info.target_id];
-        let times = failedList.get(item) || 0;
+        let failed = failedList.get(item);
+        let times = (failed && failed.count) || 0;
+        if (failed && failed.reason == "-403") {
+            await wearMedal(item.medal_info.medal_id);
+        }
         failedList.delete(roomId);
         formData.set("msg", customDanmu[roomId] || (msg = emojiList[(Math.random() * 100 >> 0) % emojiList.length], msg));
         formData.set("roomid", roomId);
@@ -124,7 +128,7 @@
             body: formData
         })
             .then(response => response.json())
-            .then(result => {
+            .then(async result => {
                 console.log(roomId, result);
                 // 10024: 拉黑
                 // 1003: 禁言
@@ -135,21 +139,25 @@
                             if (result.msg == "k" && times == 0) {
                                 customDanmu[roomId] = msg.replace("打卡", "");
                             }
-                            failedList.set(item, times);
+                            failedList.set(item, {
+                                reason: result.code,
+                                count: times
+                            });
                             break;
+                        }
+                        if (failed && failed.reason == "-403") {
+                            await takeOff(item.medal_info.medal_id);
                         }
                     case 1003:
                     case 10024:
                         readyCount++;
                         break;
                     case -403:
-                        if (times == 0) {
-                            // 换对应牌子重试
-                            wearMedal(item.medal_info.medal_id);
-                            times += 2;
-                        }
                     default:
-                        failedList.set(item, times);
+                        failedList.set(item, {
+                            reason: result.code,
+                            count: times
+                        });
                         break;
                 }
                 afterDone();
@@ -161,30 +169,57 @@
 
     }
 
-    function wearMedal(medal_id) {
-        let params = new FormData();
-        params.set("medal_id", medal_id);
-        params.set("csrf_token", JCT);
-        params.set("csrf", JCT);
-        fetch("https://api.live.bilibili.com/xlive/web-room/v1/fansMedal/wear", {
-            credentials: "include",
-            method: 'POST',
-            body: params
+    async function wearMedal(medal_id) {
+        return new Promise((r, j) => {
+            let params = new FormData();
+            params.set("medal_id", medal_id);
+            params.set("csrf_token", JCT);
+            params.set("csrf", JCT);
+            fetch("https://api.live.bilibili.com/xlive/web-room/v1/fansMedal/wear", {
+                credentials: "include",
+                method: 'POST',
+                body: params
+            })
+                .then(r => r.json())
+                .then(json => {
+                    r();
+                });
+        });
+    }
+
+    async function takeOff(medal_id) {
+        return new Promise((r, j) => {
+            let params = new FormData();
+            params.set("medal_id", medal_id);
+            params.set("csrf_token", JCT);
+            params.set("csrf", JCT);
+            fetch("https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/take_off", {
+                credentials: "include",
+                method: 'POST',
+                body: params
+            })
+                .then(r => r.json())
+                .then(json => {
+                    r();
+                });
         });
     }
 
     function afterDone() {
         if (readyCount + failedList.size + awaitList.size != totalCount) { return; }
         if (failedList.size != 0) {
+            let count = 1;
             for (let i of failedList) {
-                let count = 1;
-                if (i[1] <= 2) {
-                    failedList.set(i[0], ++i[1]);
+                let item = i[0];
+                let detail = i[1];
+                if (detail.count <= 2) {
+                    detail.count++;
+                    failedList.set(item, detail);
                     setTimeout(() => {
                         sendMsg(i[0]);
                     }, count++ * 5000);
                 } else {
-                    console.log("发送失败", i[0]);
+                    console.log("发送失败", item);
                 }
             }
         } else if (awaitList.size == 0) {
