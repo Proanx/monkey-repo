@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室去除字数限制
 // @namespace    http://tampermonkey.net/
-// @version      0.2.2
+// @version      0.2.3
 // @description  原理是分开发送。接管了发送框，会提示屏蔽词
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -9,14 +9,14 @@
 // @grant        GM_addStyle
 // @run-at		 document-end
 // @require      https://cdn.staticfile.org/jquery/1.12.4/jquery.min.js
+// @require      https://greasyfork.org/scripts/439903-blive-room-info-api/code/blive_room_info_api.js?version=1018826
 // ==/UserScript==
 
-(function () {
+; (async function () {
 	'use strict';
 
-	const LIMIT = 20;
 	var jct = document.cookie.match(/bili_jct=(\w*); /) && document.cookie.match(/bili_jct=(\w*); /)[1];
-	var roomId = __NEPTUNE_IS_MY_WAIFU__.roomInitRes.data.room_id;
+	var roomId = await ROOM_INFO_API.getRid();
 	var toastCount = 0;
 	var isProcessing = false;
 	var formData = new FormData();
@@ -27,6 +27,8 @@
 	formData.set("roomid", roomId);
 	formData.set("csrf", jct);
 	formData.set("csrf_token", jct);
+
+	const LIMIT = await ROOM_INFO_API.getDanmuLength(roomId);
 
 	const fWord = ["分钟", "爽死", "黑历史", "超度", "渣男", "和谐", "河蟹", "敏感", "你妈", "代孕", "硬了", "抖音", "保卫", "被gan", "寄吧", "郭楠", "里番", "小幸运", "试看", "加QQ", "警察", "营养", "资料", "家宝", "饿死", "不认字", "横幅", "hentai", "诱惑", "垃圾", "福报", "拉屎", "顶不住", "一口气", "苏联", "哪个平", "老鼠台", "顶得住", "gay", "黑幕", "蜀黍我啊", "梯子", "美国", "米国", "系统提示", "未成年", "爪巴"];
 	const fireWord = { "包子": "包孒", "党": "档", "89": "B9", "戏精": "戏京", "八九": "八仇", "八十九": "八十仇", "你妈逼": "你冯逼", "你画我猜": "您画我猜", "叔叔我啊": "叔叔莪啊", "爬": "瓟", "倒车": "到车" };
