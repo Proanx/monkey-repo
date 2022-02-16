@@ -4,16 +4,20 @@
 // @version      1.3.5
 // @description  在↓的基础上修改了一下
 // @author       爱虎虎的小饼干
-// @match        https://live.bilibili.com/*
+// @inlcude      /https:\/\/live.bilibili.com\/\d+/
 // @icon         http://i2.hdslb.com/bfs/face/e95015d06a56f732fd5d6a33250412f434b3c0f5.jpg@125w_125h.webp
 // @run-at       document-idle
 // @grant        GM_addStyle
 // @noframes
 // @require      https://cdn.jsdelivr.net/npm/jquery@1.11.1/dist/jquery.min.js
+// @require      https://greasyfork.org/scripts/439903-blive-room-info-api/code/blive_room_info_api.js?version=1018826
 // ==/UserScript==
 
-(function () {
+;(async function () {
     'use strict';
+
+    const JCT = document.cookie.match(/bili_jct=(\w*); /)[1];
+    const ROOM_ID = await ROOM_INFO_API.getRid();
 
     GM_addStyle(`
         #kaomojiDiv {
@@ -61,14 +65,14 @@
             opacity: 0;
         }
 		#kaomojiDiv{
-			height: 300px;
+            height: 300px;
 			overflow-y: auto;
 			display: flex;
 			justify-content: space-around;
 			flex-wrap: wrap;
 		}
 		#kaomojiPanel{
-			width: 280px;
+            width: 280px;
 			margin: 0px 0px 0px -140px;
 			left: 50%;
 			bottom: 100%;
@@ -77,10 +81,10 @@
 			z-index: 699;
 			display: none;
 		}
-    `);
+        `);
 
     //颜文字列表 会自动按长度排序
-    var kaomojiList = ["●█▀█▄","▄█▀█●","(｡･ω･｡)", "⊙ω⊙", "( ˘•ω•˘ )", "(〃∀〃)", "(´･_･`)", "ᶘ ᵒᴥᵒᶅ", "(づ◡ど)", "(っ ‸ -｡)", "乛◡乛", "(っ °Д °;)っ", "⁄(⁄ ⁄•⁄ω⁄•⁄ ⁄)⁄", "o(o･`з･´o)ﾉ!!!", "(=^･ｪ･^=)", "｜д•´)!!", " ( ´･ᴗ･` ) ", "(●ˇ∀ˇ●)", "(◍ ´꒳` ◍)", "ヾ(●´∇｀●)ﾉ", "ヾ(❀╹◡╹)ﾉ~", "( ✿＞◡❛)", "(°ロ°)", "( ・◇・)?", "վ'ᴗ' ի", "Ծ‸Ծ", "(｡•ˇ‸ˇ•｡)", "╮(￣▽￣)╭", "( ´_ゝ`)", "(´-ι_-｀)", "(〜￣△￣)〜", "～(￣▽￣～)", "ヾ(•ω•`)o", "( ๑╹ ꇴ╹) ｸﾞ好耶", "ಥ_ಥ", "ಠ_ಠ", "(´ฅω•ฅ`)", " (..•˘_˘•..)", "(´･ω･`)?", "_(:3」∠)_", "Σ( ° △ °|||)", "(ﾟДﾟ≡ﾟдﾟ)!?", "(＃°Д°)", "Σ( ￣□￣||)", "(´；ω；`)", "(▔□▔)/", "(⊙x⊙;)", "(っ╥╯﹏╰╥c)", "(●￣(ｴ)￣●)", "(´∀｀)♡", "(≖_≖ )", "（￣へ￣）", "[┐'_'┌]", "ヽ(`Д´)ﾉ", "(╯°口°)╯(┴—┴"];
+    var kaomojiList = ["（ '▿ ' ）", "●█▀█▄", "▄█▀█●", "(｡･ω･｡)", "⊙ω⊙", "( ˘•ω•˘ )", "(〃∀〃)", "(´･_･`)", "ᶘ ᵒᴥᵒᶅ", "(=・ω・=)", "(っ ‸ -｡)", "乛◡乛", "(っ °Д °;)っ", "⁄(⁄ ⁄•⁄ω⁄•⁄ ⁄)⁄", "o(o･`з･´o)ﾉ!!!", "(=^･ｪ･^=)", "｜д•´)!!", " ( ´･ᴗ･` ) ", "(●ˇ∀ˇ●)", "(◍ ´꒳` ◍)", "ヾ(●´∇｀●)ﾉ", "ヾ(❀╹◡╹)ﾉ~", "( ✿＞◡❛)", "(°ロ°)", "( ・◇・)?", "վ'ᴗ' ի", "Ծ‸Ծ", "(｡•ˇ‸ˇ•｡)", "╮(￣▽￣)╭", "( ´_ゝ`)", "(´-ι_-｀)", "(〜￣△￣)〜", "～(￣▽￣～)", "ヾ(•ω•`)o", "( ๑╹ ꇴ╹) ｸﾞ好耶", "ಥ_ಥ", "ಠ_ಠ", "(´ฅω•ฅ`)", " (..•˘_˘•..)", "(´･ω･`)?", "_(:3」∠)_", "Σ( ° △ °|||)", "(ﾟДﾟ≡ﾟдﾟ)!?", "(＃°Д°)", "Σ( ￣□￣||)", "(´；ω；`)", "(▔□▔)/", "(⊙x⊙;)", "(っ╥╯﹏╰╥c)", "(●￣(ｴ)￣●)", "(´∀｀)♡", "(≖_≖ )", "（￣へ￣）", "[┐'_'┌]", "ヽ(`Д´)ﾉ", "(╯°口°)╯(┴—┴"];
     kaomojiList.sort((a, b) => {
         return getTextWidth(a) - getTextWidth(b);
     });
@@ -212,14 +216,11 @@
             "mode": 1,
             "fontsize": 25,
             "rnd": Date.now(),
-            "roomid": __NEPTUNE_IS_MY_WAIFU__.roomInitRes.data.room_id,
+            "roomid": ROOM_ID,
             "csrf": JCT,
             "csrf_token": JCT
         }, callback);
     }
-
-    const JCT = document.cookie.match(/bili_jct=(\w*); /)[1];
-    // const ROOM_ID = location.href.match(/\/(\d+)/)[1];
 
     async function ajax(url, type, data, callback) {
         return new Promise((resolve, reject) => {
