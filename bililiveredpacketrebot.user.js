@@ -32,8 +32,6 @@
 
     var followed = await getFollowStatus(ROOM_USER_ID);
 
-    console.log(followed ? "关注了" : "没关注");
-
     var formData = new FormData();
     formData.set("csrf", JCT);
     formData.set("visit_id", "");
