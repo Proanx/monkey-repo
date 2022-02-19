@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.1.7
+// @version         0.1.8
 // @description     会在进房间以后的下一次发红包时开始生效
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -12,6 +12,7 @@
 // @noframes
 // @require         https://greasyfork.org/scripts/434638-xfgryujk-s-bliveproxy/code/xfgryujk's%20bliveproxy.js?version=983438
 // @require         https://greasyfork.org/scripts/430098-alihesari-s-notice-js-0-4-0/code/alihesari's%20noticejs%20040.js?version=985170
+// @require         https://greasyfork.org/scripts/439903-blive-room-info-api/code/blive_room_info_api.js?version=1018826
 // ==/UserScript==
 
 ; (async function () {
@@ -60,7 +61,6 @@
             .then(res => res.json())
             .then(json => {
                 if (json.code != 0 || json.data.join_status != 1) {
-                    console.log(json);
                     if (json.code == 1009109) {
                         showMessage(json.message, "warning", null, false);
                         GM_setValue("limitWarning", new Date().toLocaleDateString('zh'));
@@ -75,7 +75,7 @@
             });
     }
 
-    function unfollow() {
+    async function unfollow() {
         return new Promise((r, j) => {
             fetch(`https://api.bilibili.com/x/relation/tag/user?fid=${ROOM_USER_ID}&jsonp=jsonp&_=${Date.now()}`, {
                 "credentials": "include"
@@ -99,7 +99,7 @@
                         })
                             .then(res => res.json())
                             .then(json => {
-                                return r(json.code == 0);
+                                return r(json.code != json.message);
                             });
                     }
                 });
@@ -115,9 +115,10 @@
             }
         }
         if (!followed) {
-            timeout = setTimeout(() => {
-                if (await unfollow()) {
-                    await unfollow();
+            timeout = setTimeout(async () => {
+                let unfollowed = await unfollow();
+                if (unfollowed) {
+                    unfollow();
                 }
             }, 10000);
         }
@@ -153,10 +154,9 @@
             })
                 .then(res => res.json())
                 .then(json => {
-                    console.log(json);
                     r(json.data.is_followed);
                 });
         });
     }
 
-})()
+})();
