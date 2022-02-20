@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播拉黑主播
 // @namespace    http://tampermonkey.net/
-// @version      0.1.1
+// @version      1.0.0
 // @description  用于具体某个分区页面下的屏蔽，仅使用css，非实际拉黑
 // @author       You
 // @match        https://live.bilibili.com/*
@@ -11,30 +11,29 @@
 // @grant        GM_setValue
 // ==/UserScript==
 
-(function () {
+(async function () {
     'use strict';
 
     var blockList = getList();
 
-    if (location.pathname.match(/\/\d+/)) {
+    if (location.pathname.match(/^\/\d+/)) {
         GM_addStyle(".bili-block-btn>i.icon-report:before{content: '\\E00f' !important;}");
 
-        var roomId = document.querySelector("#iframe-popup-area>iframe") && document.querySelector("#iframe-popup-area>iframe").src.match(/roomid=(\d+)/)[1] || location.pathname.match(/\/(\d+)/)[1];
-
+        var roomId = await getRealRoomId();
         let count = 100;
         let interval = setInterval(() => {
             if (document.querySelector(".right-ctnr")) {
                 clearInterval(interval);
-                init();
+                initBtn();
             } else if (!count) {
                 clearInterval(interval);
             }
             count++;
         }, 100);
     } else if (location.pathname.match(/\/all|p\/eden\/area-tags/)) {
-        let css = "";
-        for (let i = 0; i < blockList.length; i++) {
-            css += i ? `,a[href*="com/${blockList[i]}?"]` : `a[href*="com/${blockList[i]}?"]`;
+        let css = "pronax";
+        for (const i of blockList) {
+            css += `,a[href*="com/${i}?"]`;
         }
         if (css) {
             css += "{display:none}";
@@ -44,51 +43,93 @@
 
     function add() {
         let list = getList();
-        if (list.indexOf(roomId) < 0) {
-            list.push(roomId);
-            saveList(list);
-            window.close();
+        for (const i of roomId) {
+            list.add(i);
         }
+        saveList(list);
+        window.close();
     }
 
     function remove() {
         let list = getList();
-        let index = list.indexOf(roomId);
-        if (index >= 0) {
-            if (index != list.length - 1) {
-                list[index] = list.pop();
-            }else{
-                list.pop();
-            }
-            saveList(list);
+        for (const i of roomId) {
+            list.delete(i);
         }
-        init();
+        blockList = list;
+        saveList(list);
+        initBtn();
     }
 
     function getList() {
-        return GM_getValue("blockList") ? GM_getValue("blockList").split(",") : [];
+        let list = GM_getValue("blockList");
+        list = list ? list.split(",").map(Number) : [];
+        return new Set(list);
     }
 
     function saveList(list) {
-        blockList = list;
-        GM_setValue("blockList", list.toString());
+        GM_setValue("blockList", Array.from(list).toString());
     }
 
-    function init() {
+    function initBtn() {
         document.querySelector(".bili-block-btn") && document.querySelector(".bili-block-btn").remove();
-        let index = blockList.indexOf(roomId);
+        let has = hasRid();
         let div = document.createElement('div');
-        div.innerHTML = `<div data-v-6d89404a="" data-v-6f529884="" title="" class="bili-block-btn icon-ctnr live-skin-normal-a-text pointer" style="line-height: 16px;"><i data-v-6d89404a="" class="v-middle icon-font icon-report" style="font-size: 16px;"></i><span data-v-6d89404a="" class="action-text v-middle" style="font-size: 12px;">${index >= 0 ? "解除拉黑" : "拉黑"}</span></div>`;
+        div.innerHTML = `<div title="" class="bili-block-btn icon-ctnr live-skin-normal-a-text pointer" style="line-height: 16px;"><i class="v-middle icon-font icon-report" style="font-size: 16px;"></i><span class="action-text v-middle" style="margin-left: 8px;user-select: none;font-size: 12px;">${has ? "解除拉黑" : "拉黑"}</span></div>`;
         document.querySelector(".right-ctnr").prepend(div);
-        if (index < 0) {
+        if (!has) {
             document.querySelector(".bili-block-btn").onclick = () => {
                 add();
             };
         } else {
             document.querySelector(".bili-block-btn").onclick = () => {
-                remove(index);
+                remove();
             };
         }
+    }
+
+    async function getRealRoomId() {
+        return new Promise((r, j) => {
+            fetch(`https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=${getRid()}`, {
+                credentials: 'include',
+            })
+                .then(r => r.json())
+                .then(json => {
+                    let array = [];
+                    array.push(json.data.room_id);
+                    if (json.data.short_id != 0) {
+                        array.push(json.data.short_id);
+                    }
+                    r(array);
+                });
+        });
+
+        function getRid() {
+            switch (true) {
+                // 真实roomid
+                case typeof (__NEPTUNE_IS_MY_WAIFU__) != 'undefined':
+                    return __NEPTUNE_IS_MY_WAIFU__.roomInitRes.data.room_id;
+                case document.querySelector("#iframe-popup-area>iframe") != null:
+                    return document.querySelector("#iframe-popup-area>iframe").src.match(/roomid=(\d+)/)[1];
+                // 下面的都是短位rid
+                case location.href.match(/live.bilibili.com(\/blanc)?\/(\d+)/) != null:
+                    return location.href.match(/live.bilibili.com(\/blanc)?\/(\d+)/)[2];
+                case document.querySelector("#player-ctnr iframe"):
+                    return document.querySelector("#player-ctnr iframe").src.match(/blanc\/(\d+)/)[1];
+                case typeof (__initialState) != 'undefined' && __initialState["live-non-revenue-player"].length == 1:
+                    return __initialState["live-non-revenue-player"][0].defaultRoomId;
+                default:
+                    alert("无法获得RID，请反馈给插件开发者");
+            }
+        }
+    }
+
+    function hasRid() {
+        for (const i of roomId) {
+            if (blockList.has(i)) {
+                return true;
+            }
+        }
+        return false;
     }
 
 })();
