@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室去除字数限制
 // @namespace    http://tampermonkey.net/
-// @version      0.2.4
+// @version      0.2.5
 // @description  原理是分开发送。接管了发送框，会提示屏蔽词
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -32,8 +32,8 @@
 
 	const LIMIT = await ROOM_INFO_API.getDanmuLength(roomId);
 
-	const fWord = ["分钟", "爽死", "黑历史", "超度", "渣男", "和谐", "河蟹", "敏感", "你妈", "代孕", "硬了", "抖音", "保卫", "被gan", "寄吧", "郭楠", "里番", "小幸运", "试看", "加QQ", "警察", "营养", "资料", "家宝", "饿死", "不认字", "横幅", "hentai", "诱惑", "垃圾", "福报", "拉屎", "顶不住", "一口气", "苏联", "哪个平", "老鼠台", "顶得住", "gay", "黑幕", "蜀黍我啊", "梯子", "美国", "米国", "系统提示", "未成年", "爪巴"];
-	const fireWord = { "包子": "包孒", "党": "档", "89": "B9", "戏精": "戏京", "八九": "八仇", "八十九": "八十仇", "你妈逼": "你冯逼", "你画我猜": "您画我猜", "叔叔我啊": "叔叔莪啊", "爬": "瓟", "倒车": "到车" };
+	const fWord = ["疫情", "感染", "分钟", "爽死", "黑历史", "超度", "渣男", "和谐", "河蟹", "敏感", "你妈", "代孕", "硬了", "抖音", "保卫", "被gan", "寄吧", "郭楠", "里番", "小幸运", "试看", "加QQ", "警察", "营养", "资料", "家宝", "饿死", "不认字", "横幅", "hentai", "诱惑", "垃圾", "福报", "拉屎", "顶不住", "一口气", "苏联", "哪个平", "老鼠台", "顶得住", "gay", "黑幕", "蜀黍我啊", "梯子", "美国", "米国", "系统提示", "未成年", "爪巴"];
+	const fireWord = { "包子": "包孒", "党": "档", "89": "B9", "戏精": "戏京", "八九": "八仇", "八十九": "八十仇", "你画我猜": "您画我猜", "叔叔我啊": "叔叔莪啊", "爬": "瓟", "倒车": "到车" };
 
 	GM_addStyle("#medal-selector{height:20px;}.medal-section{display:inline-block;position:relative;top:1px;}.dialog-ctnr>.arrow{display:none}.chat-input-ctnr>div:first-of-type{width:100%}.chat-input-ctnr .input-limit-hint{bottom:0!important;right:53px!important}#chat-control-panel-vm{height:102px}.chat-history-panel{height:calc(100% - 128px - 102px)!important}#liveDanmuSendBtn{height:100%;min-width:50px;padding-top:5px;border-radius:0 3px 3px 0}.link-toast.error{left:40px;right:40px;white-space:normal;margin:auto;text-align:center;box-shadow:0 .2em .1em .1em rgb(255 100 100 / 20%)}#liveDanmuInputArea{padding:8px;overflow:auto;scrollbar-width:thin}#liveDanmuInputArea::-webkit-scrollbar{width:6px}#liveDanmuInputArea::-webkit-scrollbar-thumb{background-color:#aaa}.control-panel-icon-row>.icon-right-part{margin-right:6px}.chat-input-ctnr{margin-top:4px!important}.control-panel-icon-row .medal-section .medal-item-margin{margin:2px}");
 
@@ -45,7 +45,6 @@
 		if (text.length) {
 			clearInterval(itv);
 			$(".control-panel-icon-row").prepend($(".medal-section"));
-
 			let tempText = text.clone().attr("id", "liveDanmuInputArea");
 			text.after(tempText).remove();
 			let sendBtn = $(".bottom-actions>.right-action").removeClass("p-absolute");
