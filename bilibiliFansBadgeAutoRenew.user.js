@@ -60,11 +60,11 @@
                 totalCount = result.data.count;
                 for (let i of result.data.list) {
                     if (i.medal_info.today_feed < 100) {
-                        // if (i.live_status == 1) {   // 0:没播   1:开播  2:录播
-                        //     console.log(`${i.target_name}正在直播，没有打卡`);
-                        //     awaitList.add(i);
-                        //     continue;
-                        // }
+                        if (i.live_status == 1) {   // 0:没播   1:开播  2:录播
+                            console.log(`${i.target_name}正在直播，没有打卡`);
+                            awaitList.add(i);
+                            continue;
+                        }
                         let uid = i.medal_info.target_id;
                         if (!realRoomid[uid]) {
                             let rid = await getRid(uid);
