@@ -1,8 +1,7 @@
 // ==UserScript==
-// @name         b站直播通知
-// @namespace    http://tampermonkey.net/
-// @version      0.1.3
-// @description  需要有至少一个b站页面开在后台，在有页面常驻的情况下提醒延迟不超过3分钟
+// @name         B站直播通知
+// @version      0.2.1
+// @description  需要有至少一个b站页面开在后台，通常提醒延迟不超过3分钟
 // @author       Pronax
 // @match        https://*.bilibili.com/*
 // @icon         https://www.google.com/s2/favicons?domain=bilibili.com
@@ -10,176 +9,261 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_openInTab
+// @grant        GM_notification
+// @grant        GM_addValueChangeListener 
 // @noframes
 // ==/UserScript==
 
-
 (function () {
-	'use strict';
+    'use strict';
 
-	const TAB_ID = giveMeAName();
-	// 单位都是ms
-	const CONSUMER_LOOP_TERM = 90000;
-	const RETRY_LOOP_TERM = CONSUMER_LOOP_TERM * 0.7;
-	const LIST_EXPIRE_TIME = CONSUMER_LOOP_TERM * 5.0;
-	const CONSUMER_EXPIRE_TIME = CONSUMER_LOOP_TERM * 1.3;
+    const TAB_DETAIL = {
+        name: giveMeAName(),
+        type: undefined,
+        data: null
+    };
+    // 单位都是ms
+    const TITLE_ICON = "✔ ";
+    const NOTIFACTION_TIMEOUT = 8000;
+    const CONSUMER_LOOP_TERM = 90000;
+    const RETRY_LOOP_TERM = CONSUMER_LOOP_TERM * 0.75;
+    const LIST_EXPIRE_TIME = CONSUMER_LOOP_TERM * 10.0;
+    const CONSUMER_EXPIRE_TIME = CONSUMER_LOOP_TERM * 1.5;
 
-	var isConsumer = false;
+    var master = GM_getValue("master");
+    // list存的都是uid
+    var onlineList = getList("onlineList");
+    var blockList = getList("blockList");
 
-	// list存的都是uid
-	var onlineList;
-	var blockList;
+    var temp_variable = {
+        timeout: null,
+        interval: null
+    };
 
-	var interval;
+    GM_addValueChangeListener("bordercast",
+        function (name, last, msg, remote) {
+            msg.remote = remote;
+            eval(`${msg.type}`)(msg);
+        });
 
-	// 怪火狐去吧
-	document.querySelector("body").addEventListener('click', requestPermission);
-	function requestPermission(e) {
-		document.querySelector("body").removeEventListener('click', requestPermission);
-		if (Notification.permission == "default") {
-			Notification.requestPermission();
-		}
-	}
+    window.addEventListener('beforeunload', (event) => {
+        if (master.name == TAB_DETAIL.name) {
+            GM_deleteValue("master");
+        }
+    });
 
-	window.addEventListener('beforeunload', (event) => {
-		// 把心跳设为过去，使其他页面的下一次尝试必定推翻生产者
-		isConsumer && heartbeat(Date.now() - CONSUMER_EXPIRE_TIME);
-	});
+    // 分类页面
+    if (TAB_DETAIL.type = location.href.match(/live.bilibili.com\/(\d+)/)) {
+        fetch(`https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=${TAB_DETAIL.type[1]}`)
+            .then(r => r.json())
+            .then(json => {
+                TAB_DETAIL.type = "live";
+                TAB_DETAIL.data = json.data;
+                bordercast({
+                    type: "modify",
+                    target: null,
+                    variable: "blockList",
+                    action: "add",
+                    value: TAB_DETAIL.data.uid
+                });
+            });
+    }
 
-	if (typeof (__NEPTUNE_IS_MY_WAIFU__) != 'undefined') {
-		updateBlockList(__NEPTUNE_IS_MY_WAIFU__.roomInitRes.data.uid);
-	}
+    observer();
+    temp_variable.interval = setInterval(() => {
+        observer();
+    }, RETRY_LOOP_TERM);
 
-	init();
+    async function observer() {
+        if (master == undefined || Date.now() - master.lastHeartbeat > CONSUMER_EXPIRE_TIME) {
+            electSelf();
+            await sleep(1000);
+            if (master.name == TAB_DETAIL.name) {
+                let diff = Date.now() - master.lastHeartbeat;
+                if (diff > LIST_EXPIRE_TIME || diff < 1500) {
+                    leader(true);
+                } else {
+                    leader();
+                }
+                clearCountdown(temp_variable.interval);
+                temp_variable.interval = setInterval(() => {
+                    leader();
+                }, CONSUMER_LOOP_TERM);
+                return;
+            }
+        }
+        changeTabTitle();
+    }
 
-	function init() {
-		try {
-			let consumer = tryConsumer();
-			if (consumer && Date.now() - consumer.lastHeartbeat <= LIST_EXPIRE_TIME) {
-			} else {
-				GetLiveList(true);
-			}
-			clearCountdown(interval);
-			interval = setInterval(() => {
-				if (isConsumer && heartbeat()) {
-					GetLiveList();
-				} else {
-					isConsumer = false;
-					changeTabTitle();
-					throw new Error("无生产权限");
-				}
-			}, CONSUMER_LOOP_TERM);
-		} catch (error) {
-			console.log(error.message + ",预计在" + new Date(Date.now() + RETRY_LOOP_TERM).toLocaleString() + "重新尝试");
-			clearCountdown(interval);
-			interval = setTimeout(() => {
-				init();
-			}, RETRY_LOOP_TERM);
-		}
-	}
+    async function leader(isInit) {
+        changeTabTitle();
+        if (master.name == TAB_DETAIL.name) {
+            heartbeat();
+            await checkLiveList(isInit);
+            GM_setValue("sync", TAB_DETAIL.name);
+        } else {
+            clearCountdown(temp_variable.interval);
+            temp_variable.interval = setTimeout(() => {
+                observer();
+            }, RETRY_LOOP_TERM);
+        }
+    }
 
-	function GetLiveList(isInit) {
-		ajax(`https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/w_live_users?size=100`, function (result) {
-			onlineList = getList("onlineList");
-			blockList = getList("blockList");
-			if (result.code == result.message) {
-				let newList = new Set();
-				for (let item of result.data.items) {
-					if (!(isInit || onlineList.has(item.uid) || blockList.has(item.uid))) {
-						console.log("发送" + item.uname + "的开播通知");
-						notify(item.uid, item.uname, item.title, item.face, item.link);
-					}
-					newList.add(item.uid);
-				}
-				onlineList = newList;
-				blockList.clear();
-				saveList();
-			}
-		});
-	}
+    async function checkLiveList(isInit) {
+        return new Promise((r, j) => {
+            fetch(`https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/w_live_users?size=100`, {
+                credentials: 'include'
+            })
+                .then(r => r.json())
+                .then(result => {
+                    if (result.code == result.message) {
+                        if (!result.data.items) { return; }
+                        let newList = new Set();
+                        let count = 0;
+                        for (let item of result.data.items) {
+                            if (!(isInit || onlineList.has(item.uid) || blockList.has(item.uid))) {
+                                console.log("发送" + item.uname + "的开播通知");
+                                setTimeout(() => {
+                                    notify(item.uid, item.uname, item.title, item.face, item.link);
+                                }, NOTIFACTION_TIMEOUT * Math.floor(count++ / 3));
+                            }
+                            newList.add(item.uid);
+                        }
+                        onlineList = newList;
+                        blockList.clear();
+                        saveList();
+                        bordercast({
+                            type: "sync",
+                            target: null,
+                            variable: null,
+                            action: null,
+                            value: null
+                        });
+                        r(true);
+                    } else {
+                        j(result);
+                        alert("在线列表获取失败：" + result.message);
+                    }
+                });
+        });
+    }
 
-	function ajax(url, callback) {
-		var xhr = new XMLHttpRequest();
-		xhr.open('GET', url, true);
-		xhr.withCredentials = true;
-		xhr.onreadystatechange = function () {
-			if (xhr.readyState == 4) {
-				if (xhr.status == 200 || xhr.status == 304) {
-					callback && callback(JSON.parse(xhr.response));
-				}
-			}
-		}
-		xhr.send();
-	}
+    function bordercast(msg) {
+        GM_setValue("bordercast", msg);
+    }
 
-	function notify(roomid, nickname, roomname, avatar, link) {
-		new Notification(roomname, {
-			tag: roomid,
-			icon: avatar,
-			body: nickname + "正在直播"
-		}).onclick = function () {
-			GM_openInTab(link, {
-				"active": true,
-				"insert": true
-			});
-		};
-	}
+    function electSelf(timestamp = Date.now()) {
+        bordercast({
+            type: "election",
+            target: null,
+            variable: "master",
+            action: "assign",
+            value: {
+                name: TAB_DETAIL.name,
+                lastHeartbeat: timestamp
+            }
+        });
+    }
 
-	function heartbeat(timestamp = Date.now()) {
-		let consumer = GM_getValue("consumer");
-		if (consumer && consumer.name == TAB_ID) {
-			GM_setValue("consumer", { "name": TAB_ID, "lastHeartbeat": timestamp });
-			changeTabTitle();
-			return true;
-		}
-		isConsumer = false;
-		changeTabTitle();
-		return false;
-	}
+    function election(msg) {
+        master = msg.value;
+    }
 
-	function tryConsumer() {
-		let consumer = GM_getValue("consumer");
-		if (consumer && consumer.name != TAB_ID && Date.now() - consumer.lastHeartbeat <= CONSUMER_EXPIRE_TIME) {
-			console.log("已存在消费者且未过期，过期时间：", (CONSUMER_EXPIRE_TIME - (Date.now() - consumer.lastHeartbeat)) / 1000);
-			changeTabTitle();
-			throw new Error("已有线程正在生产");
-		}
-		GM_setValue("consumer", { "name": TAB_ID, "lastHeartbeat": Date.now() });
-		isConsumer = true;
-		changeTabTitle();
-		return consumer;
-	}
+    function sync(msg) {
+        clearCountdown(temp_variable.timeout);
+        if (!msg.remote) {
+            loadList();
+        }
+        if (TAB_DETAIL.type == "live") {
+            bordercast({
+                type: "modify",
+                target: null,
+                variable: "blockList",
+                action: "add",
+                value: TAB_DETAIL.data.uid
+            });
+        }
+        if (master.name == TAB_DETAIL.name) {
+            temp_variable.timeout = setTimeout(() => {
+                saveList();
+                bordercast({
+                    type: "loadList",
+                    target: null,
+                    variable: null,
+                    action: null,
+                    value: null
+                });
+            }, 1000);
+        }
+    }
 
-	function getList(name) {
-		let list = GM_getValue(name);
-		list = list ? list.split(",").map(Number) : [];
-		return new Set(list);
-	}
+    function modify(msg) {
+        eval(`${msg.variable}.${msg.action}(${msg.value})`);
+    }
 
-	function saveList() {
-		GM_setValue("onlineList", Array.from(onlineList).toString());
-		GM_setValue("blockList", Array.from(blockList).toString());
-	}
+    async function sleep(ms) {
+        return new Promise(r => {
+            setTimeout(() => {
+                r(true);
+            }, ms);
+        });
+    }
 
-	function updateBlockList(uid) {
-		let list = getList("blockList");
-		list.add(uid);
-		GM_setValue("blockList", Array.from(list).toString());
-	}
+    function notify(roomid, nickname, roomname, avatar, link) {
+        GM_notification({
+            text: nickname + "正在直播",
+            title: roomname,
+            image: avatar,
+            timeout: NOTIFACTION_TIMEOUT,
+            onclick: () => {
+                GM_openInTab(link, {
+                    "active": true,
+                    "insert": true,
+                });
+            },
+        });
+    }
 
-	function giveMeAName() {
-		let name = Date.now().toString(16) + "-" + btoa(location.host);
-		sessionStorage.setItem(name, location.pathname);
-		return name;
-	}
+    function heartbeat(timestamp = Date.now()) {
+        if (master.name == TAB_DETAIL.name) {
+            GM_setValue("master", {
+                "name": TAB_DETAIL.name,
+                "lastHeartbeat": timestamp
+            });
+            electSelf(timestamp);
+            return true;
+        }
+        return false;
+    }
 
-	function clearCountdown(timeout) {
-		clearInterval(timeout);
-		clearTimeout(timeout);
-	}
+    function giveMeAName() {
+        let name = Date.now().toString(16) + "-" + btoa(location.host);
+        return name;
+    }
 
-	function changeTabTitle() {
-		document.title = (isConsumer ? "「✔」" : "") + (document.title.startsWith("「") ? document.title.substr(3) : document.title);
-	}
+    function loadList(msg) {
+        onlineList = getList("onlineList");
+        blockList = getList("blockList");
+    }
+
+    function getList(name) {
+        let list = GM_getValue(name);
+        list = list ? list.split(",").map(Number) : [];
+        return new Set(list);
+    }
+
+    function saveList() {
+        GM_setValue("onlineList", Array.from(onlineList).toString());
+        GM_setValue("blockList", Array.from(blockList).toString());
+    }
+
+    function clearCountdown(timeout) {
+        clearInterval(timeout);
+        clearTimeout(timeout);
+    }
+
+    function changeTabTitle() {
+        document.title = (master.name == TAB_DETAIL.name ? TITLE_ICON : "") + document.title.replace(TITLE_ICON, "");
+    }
 
 })();
