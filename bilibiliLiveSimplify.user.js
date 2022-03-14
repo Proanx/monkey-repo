@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室简化
 // @namespace    http://tampermonkey.net/
-// @version      0.1.4
+// @version      0.1.5
 // @description  简化聊天室但保留了粉丝牌、房管、老爷等标志。
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -12,6 +12,20 @@
 
 (function () {
 	'use strict';
+
+	/**
+	 * 
+		  <div class="penury-gift-item v-middle a-move-in-top">
+			<span class="username v-middle">Pronex</span>
+			<span class="action v-middle">投喂</span>
+			<span class="gift-name v-middle">辣条</span>
+			<div class="dp-i-block v-middle">
+				<div class="gift-frame gift-1-20" style="width: 20px; height: 20px;">
+				</div>
+			</div>
+			<span class="count">X 1</span>
+		</div>
+	 */
 
 	GM_addStyle(".block-effect-ctnr{min-width: 175px;}.live-room-app .app-content{padding-top:60px !important}");
 	// 弹幕
@@ -146,6 +160,7 @@
 			// 后台打开页面时有时候抓不到事件
 			let list = document.querySelectorAll(".chat-items>.chat-item.danmaku-item");
 			for (let item of list) {
+				item.querySelector(".emoticon") && item.querySelector(".emoticon").classList.add("open-menu");
 				item.querySelector(".fans-medal-item-ctnr") && item.prepend(item.querySelector(".fans-medal-item-ctnr"));
 				item.querySelector(".rank-icon") && item.querySelector(".user-name").before(item.querySelector(".rank-icon"));
 				if (item.querySelector(".my-self")) {
