@@ -1,7 +1,8 @@
 // ==UserScript==
 // @name            简单封装一些信息
-// @version         1.0.4
+// @version         1.0.5
 // @description     无
+// @match           bilibili
 // @author          Pronax
 // ==/UserScript==
 
@@ -11,6 +12,7 @@
     w.ROOM_INFO_API = {
         ROOM_PLAY_INFO: undefined,
         ROOM_USER_INFO: undefined,
+        FANS_MEDAL_INFO: undefined,
         getRid: async function () {
             if (!this.ROOM_PLAY_INFO) {
                 await this.fetchPlayInfo(this.getTempRid());
@@ -28,6 +30,13 @@
                 await this.fetchUserInfo(this.getTempRid());
             }
             return this.ROOM_USER_INFO.property.danmu.length;
+        },
+        getFansMedalInfo: async function () {
+            if (!this.ROOM_USER_INFO) {
+                let uid = await ROOM_INFO_API.getUid();
+                await this.fetchMedalInfo(uid);
+            }
+            return this.ROOM_USER_INFO.my_fans_medal;
         },
         getTempRid: function () {
             switch (true) {
@@ -48,26 +57,38 @@
             }
         },
         fetchPlayInfo: async function (rid) {
-            return new Promise((r, j) => {
+            return new Promise((resolve, reject) => {
                 fetch(`https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=${rid}`, {
                     credentials: 'include',
                 })
-                    .then(r => r.json())
+                    .then(res => res.json())
                     .then(json => {
                         this.ROOM_PLAY_INFO = json.data;
-                        r();
+                        resolve();
                     });
             });
         },
         fetchUserInfo: async function (rid) {
-            return new Promise((r, j) => {
+            return new Promise((resolve, reject) => {
                 fetch(`https://api.live.bilibili.com/xlive/web-room/v1/index/getInfoByUser?room_id=${rid}`, {
                     credentials: 'include',
                 })
-                    .then(r => r.json())
+                    .then(res => res.json())
                     .then(json => {
                         this.ROOM_USER_INFO = json.data;
-                        r();
+                        resolve();
+                    });
+            });
+        },
+        fetchMedalInfo: async function (uid) {
+            return new Promise((resolve, reject) => {
+                fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/fans_medal_info?target_id=${uid}`, {
+                    credentials: 'include',
+                })
+                    .then(res => res.json())
+                    .then(json => {
+                        this.ROOM_USER_INFO = json.data;
+                        resolve();
                     });
             });
         }
