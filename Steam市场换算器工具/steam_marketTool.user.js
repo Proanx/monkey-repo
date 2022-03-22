@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam市场 价格/比例/汇率 换算器
 // @namespace    http://pronax.wtf/
-// @version      1.0.0
+// @version      1.0.1
 // @description  见安装页面介绍
 // @author       Pronax
 // @include      *://steamcommunity.com/market/*
@@ -147,8 +147,7 @@
                     }
                 }, option.time);
             },
-            updateCurrency(currencyData) {
-                let target = this.currency.target;
+            updateCurrency(currencyData, target = this.currency.target) {
                 let select = this.currency[target].select;
                 this.currency[target].loading = true;
                 fetch(`https://steamcommunity.com/market/listings/730/Souvenir%20Sawed-Off%20|%20Snake%20Camo%20(Well-Worn)/render/?query=&start=40&count=100&currency=${currencyData.eCurrencyCode}`)
@@ -448,6 +447,12 @@
                 if (buffPrice != null) {
                     this.inputList.cost.value = buffPrice[1];
                     this.updateValue("cost");
+                }
+                if (Date.now() - this.exchangeRate[this.currency.origin.select].timestamp > 1800000) {
+                    this.updateCurrency(this.CURRENCY_DATA[this.currency.origin.select], "origin");
+                }
+                if (Date.now() - this.exchangeRate[this.currency.foreign.select].timestamp > 1800000) {
+                    this.updateCurrency(this.CURRENCY_DATA[this.currency.foreign.select], "foreign");
                 }
             });
         },
