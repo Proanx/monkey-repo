@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室简化
 // @namespace    http://tampermonkey.net/
-// @version      0.1.5
+// @version      0.1.6		
 // @description  简化聊天室但保留了粉丝牌、房管、老爷等标志。
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -39,7 +39,7 @@
 	var count = 100;
 	var userId = getUserID();
 	var config = {
-		enterPersistence: true,		// 改为任意false值就可以取消持久化入场信息
+		enterPersistence: false,		// 改为任意false值就可以取消持久化入场信息
 		giftPersistence: true,		// 同上，用来取消持久化礼物
 	}
 
