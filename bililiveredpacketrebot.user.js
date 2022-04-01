@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.1.10
+// @version         0.1.11
 // @description     会在进房间以后的下一次发红包时开始生效
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -57,7 +57,7 @@
     formData.set("spm_id", "444.8.red_envelope.extract");
 
     bliveproxy.addCommandHandler("POPULARITY_RED_POCKET_START", (message) => {
-        if (doorSill >= (message.data.total_price / 100)) {
+        if (doorSill <= (message.data.total_price / 100)) {
             setTimeout(drawRadPacket(message), Math.random() * 10000);
         }
     });
