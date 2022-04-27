@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.19
+// @version      0.1.20
 // @description  作用于动态页面，一天一次，0时刷新，自动发弹幕领取首条亲密度奖励
 // @author       Pronax
 // @match        *://t.bilibili.com/*
@@ -59,7 +59,7 @@
                 let count = 1;
                 totalCount = result.data.count;
                 for (let i of result.data.list) {
-                    if (i.medal_info.today_feed < 100 && i.medal_info.level <= 20) {
+                    if (i.medal_info.today_feed < 100 && i.medal_info.guard_level == 0) {
                         if (i.live_status == 1) {   // 0:没播   1:开播  2:录播
                             console.log(`${i.target_name}正在直播，没有打卡`);
                             awaitList.add(i);
