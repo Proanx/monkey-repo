@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.21
+// @version      0.1.22
 // @description  作用于动态页面，发送弹幕+点赞三次来获取经验值，开播状态的不打卡
 // @author       Pronax
 // @match        *://t.bilibili.com/*
@@ -74,11 +74,12 @@
     async function main(pageNum = 1) {
         let medalDetail = await getMedalDetail(pageNum);
         checker(medalDetail);
-        if (medalDetail.hasNext) {
-            setTimeout(() => {
-                main(medalDetail.nextPage);
-            }, 1000);
-        }
+        // todo 翻页未修复
+        // if (medalDetail.hasNext) {
+        //     setTimeout(() => {
+        //         main(medalDetail.nextPage);
+        //     }, 1000);
+        // }
     }
 
     /**
@@ -106,6 +107,11 @@
                                     return item.medal.is_lighted;
                                 }
                             },
+                            "isDarkened": {
+                                get() {
+                                    return !item.isLighted;
+                                }
+                            },
                             "isGuard": {
                                 get() {
                                     return item.medal.guard_level != 0;
@@ -114,6 +120,11 @@
                             "wasGuard": {
                                 get() {
                                     return item.medal.level > 20;
+                                }
+                            },
+                            "intimacyEarnable": {
+                                get() {
+                                    return item.medal.level < 20;
                                 }
                             },
                             "userId": {
@@ -136,16 +147,37 @@
                                     return item.medal.medal_id;
                                 }
                             },
-                            "isFed": {
+                            "isAttended": {
                                 get() {
-                                    // 也许点赞有什么bug，但是600通常是有的
-                                    return item.medal.today_feed >= 600;
+                                    // floor用于消除投币等操作对亲密度产生的影响
+                                    return item.medal.today_feed >= 700 || Math.floor(item.medal.today_feed / 100) % 2 == 1;
+                                }
+                            },
+                            "isNotAttended": {
+                                get() {
+                                    return !item.isAttended;
+                                }
+                            },
+                            "isLiked": {
+                                get() {
+                                    // 点赞有时只算两次，只有400            floor用于消除投币等操作对亲密度产生的影响
+                                    return item.medal.today_feed >= 400 || Math.floor(item.medal.today_feed / 100) % 2 == 0;
+                                }
+                            },
+                            "isNotLiked": {
+                                get() {
+                                    return !item.isLiked;
                                 }
                             },
                             "isLive": {
                                 get() {
                                     // 0:没播   1:开播  2:录播
                                     return item.room_info.living_status == 1;
+                                }
+                            },
+                            "isNotLive": {
+                                get() {
+                                    return !item.isLive;
                                 }
                             },
                         });
@@ -167,10 +199,13 @@
      */
     function checker(medalDetail) {
         let count = 1;
-        currentCount = medalDetail.medalList.length;
+        if (currentCount == 0) {
+            currentCount = medalDetail.medalList.length;
+        } else {
+            currentCount += medalDetail.medalList.length;
+        }
         for (let medal of medalDetail.medalList) {
-            // ~A~C~D + ~B~C~D
-            if (!(medal.isGuard || medal.isFed) && (!medal.isLighted || !medal.wasGuard)) {
+            if (customDanmu[medal.roomId] || medal.isDarkened || (medal.intimacyEarnable && medal.isNotAttended)) {
                 if (medal.isLive) {
                     console.log(`${medal.userName}正在直播，没有打卡`);
                     awaitList.add(medal);
@@ -178,11 +213,17 @@
                 }
                 console.log(`预计 ${count * 3} 秒后给 ${medal.userName} 发送弹幕`);
                 setTimeout(() => {
-                    // console.log(medal);
                     sendMsg(medal);
                 }, count++ * 3000);
             } else {
                 readyCount++;
+            }
+            if (medal.intimacyEarnable && medal.isNotLiked) {
+                // 点赞打卡
+                let triggetLimit = 3;
+                for (; triggetLimit--;) {
+                    messageQueue.triggerLikeInteract(medal);
+                }
             }
         }
         afterDone();
@@ -233,12 +274,6 @@
     }
 
     async function sendMsg(item) {
-        // 点赞打卡
-        let triggetLimit = 3;
-        for (; triggetLimit--;) {
-            messageQueue.triggerLikeInteract(item);
-        }
-
         // let uid = item.userId;
         // if (!realRoomid[uid]) {
         //     let rid = await getRid(uid);
@@ -263,7 +298,7 @@
             medalStatus = true;
             await wearMedal(item.medalId);
         }
-        failedList.delete(roomId);
+        failedList.delete(item);
         formData.set("msg", customDanmu[roomId] || (msg = emojiList[(Math.random() * 100 >> 0) % emojiList.length], msg));
         formData.set("roomid", roomId);
         formData.set("rnd", Math.floor(new Date() / 1000));
@@ -299,6 +334,7 @@
                         readyCount++;
                         break;
                     case -403:
+                    case 10030:
                     default:
                         failedList.set(item, {
                             reason: result.code,
