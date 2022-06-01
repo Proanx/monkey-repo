@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.0.2
-// @description  所有徽章都能看到了（200以内）
+// @version      1.0.3
+// @description  临时版本
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
 // @icon         http://bilibili.com/favicon.ico
@@ -534,7 +534,7 @@
             },
             async refreshMedalList(page = 1) {
                 return new Promise((resolve, reject) => {
-                    fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=${page}&page_size=200`, { credentials: 'include', })
+                    fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=${page}&page_size=50`, { credentials: 'include', })
                         .then(res => res.json())
                         .then(json => {
                             if (json.code == json.message) {
@@ -588,7 +588,7 @@
                     if (result) {
                         this.currentlyWearing = result;
                     } else {
-                        alert("找不到对应的徽章");
+                        console.warn("徽章列表内找不到对应的徽章");
                         this.refreshMedalList();
                     }
                 }
@@ -649,6 +649,10 @@
                     count_a = Number.MAX_VALUE;
                 } else if (b.medal.target_id == this.fansMedalInfo.my_fans_medal.target_id) {
                     count_b = Number.MAX_VALUE;
+                } else if (a.medal.is_lighted == 0) {
+                    count_a = +a.medal.level;
+                } else if (b.medal.is_lighted == 0) {
+                    count_b = +b.medal.level;
                 }
                 return count_b - count_a;
             }
