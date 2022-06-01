@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.22
+// @version      0.1.23
 // @description  作用于动态页面，发送弹幕+点赞三次来获取经验值，开播状态的不打卡
 // @author       Pronax
 // @match        *://t.bilibili.com/*
@@ -24,33 +24,37 @@
     var readyCount = 0;
     var currentCount = 0;
     var messageQueue = {   // timeout消费队列
-        lastTimeStamp: Date.now(),
-        triggerLikeInteract: (medal, timeout = 1000) => {
+        lastDanmuTimeStamp: Date.now(),
+        lastInteractTimeStamp: Date.now(),
+        getTimeout: (lastTimeStamp, margin = 3000) => {
             let now = Date.now();
-            if (messageQueue.lastTimeStamp < now) {
-                let diff = now - messageQueue.lastTimeStamp;
-                if (diff < timeout) {
-                    timeout += timeout - diff;
-                }
-                messageQueue.lastTimeStamp = now + timeout;
+            if (messageQueue[lastTimeStamp] < now) {
+                messageQueue[lastTimeStamp] = now + margin;
             } else {
-                let diff = messageQueue.lastTimeStamp - now;
-                messageQueue.lastTimeStamp += timeout;
-                timeout += diff;
+                let diff = messageQueue[lastTimeStamp] - now;
+                messageQueue[lastTimeStamp] += margin;
+                margin += diff;
             }
+            return margin;
+        },
+        triggerLikeInteract: (medal, margin = 1000) => {
+            let timeout = messageQueue.getTimeout("lastInteractTimeStamp", margin);
             setTimeout(() => {
                 likeInteract(medal);
-                // 重试缺少出口
-                // if (!await likeInteract(medal)) {
-                //     messageQueue.triggerLikeInteract(medal, after);
-                // }
+            }, timeout);
+        },
+        sendDanmu: (medal, margin = 5000) => {
+            let timeout = messageQueue.getTimeout("lastDanmuTimeStamp", margin);
+            console.log(`自动续牌-预计 ${Math.round(timeout / 1000)} 秒后给 ${medal.userName} 发送弹幕`);
+            setTimeout(() => {
+                sendMsg(medal);
             }, timeout);
         }
     };
 
     // var realRoomid = GM_getValue("realRoom") || {};
     var customDanmu = {     // 自定义打卡文字
-        // 真实房间号
+        // 需要真实房间号，短位不行
         21470918: "王哥我爱你王哥",
         12232179: "打卡",
     };
@@ -65,7 +69,7 @@
 
     setTimeout(async () => {
         if (GM_getValue("timestamp") != new Date().toLocaleDateString()) {
-            console.log("今天日子不对啊");
+            console.log("自动续牌-今天日子不对啊");
             main();
         }
     }, 1000);
@@ -74,12 +78,11 @@
     async function main(pageNum = 1) {
         let medalDetail = await getMedalDetail(pageNum);
         checker(medalDetail);
-        // todo 翻页未修复
-        // if (medalDetail.hasNext) {
-        //     setTimeout(() => {
-        //         main(medalDetail.nextPage);
-        //     }, 1000);
-        // }
+        if (medalDetail.hasNext) {
+            setTimeout(() => {
+                main(medalDetail.nextPage);
+            }, 1000);
+        }
     }
 
     /**
@@ -89,13 +92,13 @@
      */
     async function getMedalDetail(pageNum = 1) {
         return new Promise((resolve, reject) => {
-            fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=${pageNum}&page_size=200`, {
+            fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=${pageNum}&page_size=50`, {
                 credentials: 'include'
             })
                 .then(response => response.json())
                 .then(json => {
                     if (json.code != json.message) {
-                        console.error(`获取列表失败：页数${pageNum}`, json);
+                        console.error(`自动续牌-获取列表失败：页数${pageNum}`, json);
                         throw new Error("获取列表失败");
                     }
                     // 最近获得、当前房间、当前佩戴会在这个特殊列表内，需要添加到总列表当中
@@ -160,8 +163,8 @@
                             },
                             "isLiked": {
                                 get() {
-                                    // 点赞有时只算两次，只有400            floor用于消除投币等操作对亲密度产生的影响
-                                    return item.medal.today_feed >= 400 || Math.floor(item.medal.today_feed / 100) % 2 == 0;
+                                    // 点赞有时只算两次，只有400，floor用于消除投币等操作对亲密度产生的影响
+                                    return item.medal.today_feed >= 400 || (item.medal.today_feed != 0 && Math.floor(item.medal.today_feed / 100) % 2 == 0);
                                 }
                             },
                             "isNotLiked": {
@@ -198,32 +201,29 @@
      * @param {Object} medalDetail 
      */
     function checker(medalDetail) {
-        let count = 1;
         if (currentCount == 0) {
             currentCount = medalDetail.medalList.length;
         } else {
             currentCount += medalDetail.medalList.length;
         }
         for (let medal of medalDetail.medalList) {
-            if (customDanmu[medal.roomId] || medal.isDarkened || (medal.intimacyEarnable && medal.isNotAttended)) {
-                if (medal.isLive) {
-                    console.log(`${medal.userName}正在直播，没有打卡`);
-                    awaitList.add(medal);
-                    continue;
-                }
-                console.log(`预计 ${count * 3} 秒后给 ${medal.userName} 发送弹幕`);
-                setTimeout(() => {
-                    sendMsg(medal);
-                }, count++ * 3000);
-            } else {
-                readyCount++;
-            }
             if (medal.intimacyEarnable && medal.isNotLiked) {
                 // 点赞打卡
                 let triggetLimit = 3;
                 for (; triggetLimit--;) {
                     messageQueue.triggerLikeInteract(medal);
                 }
+            }
+            // 20级以上的发弹幕不会加亲密度无法判断，只能恩发了
+            if ((medal.isNotAttended && customDanmu[medal.roomId]) || medal.isDarkened || (medal.intimacyEarnable && medal.isNotAttended)) {
+                if (medal.isLive) {
+                    console.log(`自动续牌-${medal.userName}正在直播，没有打卡`);
+                    awaitList.add(medal);
+                    continue;
+                }
+                messageQueue.sendDanmu(medal);
+            } else {
+                readyCount++;
             }
         }
         afterDone();
@@ -234,7 +234,7 @@
             fetch(`https://api.live.bilibili.com/room/v2/Room/room_id_by_uid?uid=${target_id}`)
                 .then(response => response.json())
                 .then(json => {
-                    console.log("获取房间号", json);
+                    console.log("自动续牌-获取房间号", json);
                     if (json.code == 0) {
                         resolve(json.data.room_id);
                     } else {
@@ -242,14 +242,14 @@
                     }
                 })
                 .catch(err => {
-                    console.log("获取房间号错误", err);
+                    console.log("自动续牌-获取房间号错误", err);
                     resolve(null);
                 });
         });
     }
 
     async function likeInteract(medal) {
-        console.log(`给${medal.userName}点赞`);
+        console.log(`自动续牌-给${medal.userName}点赞`);
         return new Promise((resolve, reject) => {
             fetch("https://api.live.bilibili.com/xlive/web-ucenter/v1/interact/likeInteract", {
                 "headers": {
@@ -266,7 +266,7 @@
                     if (json.code == json.message) {
                         resolve(true);
                     } else {
-                        console.warn(json);
+                        console.warn(`自动续牌-${medal.userName}点赞失败`, json);
                         resolve(false);
                     }
                 });
@@ -282,7 +282,7 @@
         //         GM_setValue("realRoom", realRoomid);
         //     } else {
         //         alert("自动续牌：粉丝牌中存在用户没有直播间");
-        //         console.warn("没有直播间", item);
+        //         console.warn("自动续牌-没有直播间", item);
         //         readyCount++;
         //         return;
         //     }
@@ -290,15 +290,13 @@
         let msg;
         // let roomId = realRoomid[item.userId];
         let roomId = item.roomId;
-        let failed = failedList.get(item);
-        let times = (failed && failed.count) || 0;
+        let times = item.retryCount || 0;
         let medalStatus = false;
         // 需要戴粉丝牌才能发言
-        if (failed && failed.reason == "-403") {
+        if (item.failedReason == "-403") {
             medalStatus = true;
             await wearMedal(item.medalId);
         }
-        failedList.delete(item);
         formData.set("msg", customDanmu[roomId] || (msg = emojiList[(Math.random() * 100 >> 0) % emojiList.length], msg));
         formData.set("roomid", roomId);
         formData.set("rnd", Math.floor(new Date() / 1000));
@@ -309,7 +307,7 @@
         })
             .then(response => response.json())
             .then(async result => {
-                console.log(item.userName, result);
+                console.log("自动续牌-打卡结果：", item.userName, result);
                 if (medalStatus) {
                     await takeOff();
                 }
@@ -323,10 +321,9 @@
                             if (result.msg == "k" && times == 0) {
                                 customDanmu[roomId] = msg.replace("打卡", "");
                             }
-                            failedList.set(item, {
-                                reason: result.code,
-                                count: times
-                            });
+                            item.failedReason = result.code;
+                            item.retryCount = times;
+                            failedList.set(item.userId, item);
                             break;
                         }
                     case 1003:
@@ -336,17 +333,15 @@
                     case -403:
                     case 10030:
                     default:
-                        failedList.set(item, {
-                            reason: result.code,
-                            count: times
-                        });
+                        item.failedReason = result.code;
+                        item.retryCount = times;
+                        failedList.set(item.userId, item);
                         break;
                 }
                 afterDone();
             })
             .catch(err => {
-                console.log("发送弹幕失败：", err);
-                alert("发送弹幕失败");
+                console.log("自动续牌-发送弹幕失败：", err);
             });
 
     }
@@ -388,23 +383,20 @@
 
     function afterDone() {
         if (readyCount + failedList.size + awaitList.size != currentCount) { return; }
+        console.log("自动续牌-开始整理打卡失败的房间");
         if (failedList.size != 0) {
-            let count = 1;
             for (let i of failedList) {
-                let item = i[0];
                 let detail = i[1];
-                if (detail.count <= 2) {
-                    detail.count++;
-                    failedList.set(item, detail);
-                    setTimeout(() => {
-                        sendMsg(i[0]);
-                    }, count++ * 5000);
+                if (detail.retryCount <= 2) {
+                    detail.retryCount++;
+                    messageQueue.sendDanmu(detail);
                 } else {
-                    console.log("发送失败", item);
+                    console.log("自动续牌-弹幕发送失败", detail);
                 }
             }
+            failedList.clear();
         } else if (awaitList.size == 0) {
-            console.log('都搞定了');
+            console.log("自动续牌-都搞定了");
             GM_setValue("timestamp", new Date().toLocaleDateString());
         }
     }
