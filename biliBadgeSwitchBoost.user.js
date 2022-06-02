@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.0.3
-// @description  临时版本
+// @version      1.0.4
+// @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
 // @icon         http://bilibili.com/favicon.ico
@@ -453,11 +453,13 @@
         el: '#medel_switch_box',
         async created() {
             this.fansMedalInfo = Object.assign({}, this.fansMedalInfo, await this.getFansMedalInfo());
-            this.refreshMedalList().then(() => {
-                if (this.autoSwitch && this.fansMedalInfo.has_fans_medal && this.fansMedalInfo.my_fans_medal.medal_id != this.currentlyWearing.medal.medal_id) {
-                    this.switchBadge(this.fansMedalInfo.my_fans_medal.medal_id);
-                }
-            });
+            let page = 1;
+            while (await this.refreshMedalList(page++)) {
+                await this.sleep(1000);
+            }
+            if (this.autoSwitch && this.fansMedalInfo.has_fans_medal && this.fansMedalInfo.my_fans_medal.medal_id != this.currentlyWearing.medal.medal_id) {
+                this.switchBadge(this.fansMedalInfo.my_fans_medal.medal_id);
+            }
         },
         mounted: function () {
             document.querySelector("#medal-selector").onclick = () => {
@@ -488,6 +490,13 @@
             };
         },
         computed: {
+            medalWallIndex: function () {
+                let indexList = [];
+                this.medalWall.forEach(item => {
+                    indexList.push(item.medal.medal_id);
+                });
+                return indexList;
+            }
         },
         data() {
             return {
@@ -500,15 +509,15 @@
                         "medal_id": 0
                     }
                 },
-                currentlyWearing: GM_getValue("currentlyWearing", {
+                currentlyWearing: {
                     medal: {
                         medal_id: 0
                     }
-                }),
+                },
                 autoSwitch: GM_getValue("autoSwitch", false),
                 needSwitch: false,
                 panelStatus: false,
-                medalWall: GM_getValue("medalWall", []),
+                medalWall: [],
             }
         },
         watch: {
@@ -523,6 +532,13 @@
             }
         },
         methods: {
+            async sleep(ms) {
+                return new Promise(r => {
+                    setTimeout(() => {
+                        r(true);
+                    }, ms);
+                });
+            },
             async getFansMedalInfo() {
                 let uid = await ROOM_INFO_API.getUid();
                 let res = await fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/fans_medal_info?target_id=${uid}`, { credentials: 'include', });
@@ -539,24 +555,21 @@
                         .then(json => {
                             if (json.code == json.message) {
                                 let list = [].concat(json.data.list, json.data.special_list);
-                                if (list.length == 1 && list[0].medal.wearing_status) {
-                                    this.currentlyWearing = list[0];
-                                }
-                                list.sort(this.sort);
-                                // if (page == 1) {
-                                this.medalWall = list;
-                                // } else {
-                                //     this.medalWall = this.medalWall.concat(json.data.list, json.data.special_list);
-                                // }
-                                if (json.data.page_info.has_more) {
-                                    console.log("has_more");
-                                    // setTimeout(() => {
-                                    //     this.refreshMedalList(json.data.page_info.next_page);
-                                    // }, 2000);
-                                }
-                                resolve();
+                                list.forEach((item) => {
+                                    if (item.medal.wearing_status) {
+                                        this.currentlyWearing = item;
+                                    }
+                                    let index = this.medalWallIndex.indexOf(item.medal.medal_id);
+                                    if (index >= 0) {
+                                        this.$set(this.medalWall, index, item);
+                                    } else {
+                                        this.medalWall.push(item);
+                                    }
+                                });
+                                this.medalWall.sort(this.sort);
+                                resolve(json.data.page_info.has_more && page < json.data.page_info.total_page);
                             } else {
-                                reject();
+                                reject(false);
                             }
                         })
                         .catch(err => {
@@ -564,7 +577,7 @@
                         });
                 });
             },
-            switchBadge(badgeId, index) {
+            async switchBadge(badgeId, index) {
                 let params = new URLSearchParams();
                 params.set("medal_id", badgeId);
                 params.set("csrf_token", this.jct);
@@ -589,7 +602,10 @@
                         this.currentlyWearing = result;
                     } else {
                         console.warn("徽章列表内找不到对应的徽章");
-                        this.refreshMedalList();
+                        let page = 1;
+                        while (await this.refreshMedalList(page++)) {
+                            await this.sleep(100);
+                        }
                     }
                 }
                 GM_setValue("currentlyWearing", this.currentlyWearing);
@@ -617,8 +633,11 @@
                 if (!this.panelStatus) {
                     document.querySelector(".medal-wear-body").scrollTop = 0;
                 } else {
-                    this.$nextTick(() => {
-                        this.refreshMedalList();
+                    this.$nextTick(async () => {
+                        let page = 1;
+                        while (await this.refreshMedalList(page++)) {
+                            await this.sleep(100);
+                        }
                     });
                 }
             },
