@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.23
-// @description  作用于动态页面，发送弹幕+点赞三次来获取经验值，开播状态的不打卡
+// @version      0.1.24
+// @description  发送弹幕+点赞3次+分享5次来获取经验值，仅会在不开播的情况下打卡
 // @author       Pronax
 // @match        *://t.bilibili.com/*
 // @icon         http://bilibili.com/favicon.ico
@@ -21,14 +21,13 @@
 
     var failedList = new Map();
     var awaitList = new Set();
+    var shareList = [];
     var readyCount = 0;
     var currentCount = 0;
     var messageQueue = {   // timeout消费队列
-        lastDanmuTimeStamp: Date.now(),
-        lastInteractTimeStamp: Date.now(),
         getTimeout: (lastTimeStamp, margin = 3000) => {
             let now = Date.now();
-            if (messageQueue[lastTimeStamp] < now) {
+            if (messageQueue[lastTimeStamp] < now || messageQueue[lastTimeStamp] == undefined) {
                 messageQueue[lastTimeStamp] = now + margin;
             } else {
                 let diff = messageQueue[lastTimeStamp] - now;
@@ -37,10 +36,10 @@
             }
             return margin;
         },
-        triggerLikeInteract: (medal, margin = 1000) => {
-            let timeout = messageQueue.getTimeout("lastInteractTimeStamp", margin);
+        triggerInteract: (channel, margin, method, param) => {
+            let timeout = messageQueue.getTimeout(channel, margin);
             setTimeout(() => {
-                likeInteract(medal);
+                method(param);
             }, timeout);
         },
         sendDanmu: (medal, margin = 5000) => {
@@ -152,7 +151,7 @@
                             },
                             "isAttended": {
                                 get() {
-                                    // floor用于消除投币等操作对亲密度产生的影响
+                                    // 仅用于点赞+打卡的判断，floor用于消除投币等操作对亲密度产生的影响
                                     return item.medal.today_feed >= 700 || Math.floor(item.medal.today_feed / 100) % 2 == 1;
                                 }
                             },
@@ -164,12 +163,23 @@
                             "isLiked": {
                                 get() {
                                     // 点赞有时只算两次，只有400，floor用于消除投币等操作对亲密度产生的影响
-                                    return item.medal.today_feed >= 400 || (item.medal.today_feed != 0 && Math.floor(item.medal.today_feed / 100) % 2 == 0);
+                                    return item.medal.today_feed >= 700 || (item.medal.today_feed != 0 && Math.floor(item.medal.today_feed / 100) % 2 == 0);
                                 }
                             },
                             "isNotLiked": {
                                 get() {
                                     return !item.isLiked;
+                                }
+                            },
+                            "isShared": {
+                                get() {
+                                    // 完全：12 拉黑-1 少赞-2/t
+                                    return Math.floor(item.medal.today_feed / 100) >= 11;
+                                }
+                            },
+                            "isNotShared": {
+                                get() {
+                                    return !item.isShared;
                                 }
                             },
                             "isLive": {
@@ -188,7 +198,7 @@
                     let detail = {
                         medalList: list,
                         medalCount: json.data.total_number,
-                        hasNext: json.data.page_info.has_more,
+                        hasNext: pageNum < json.data.page_info.total_page,
                         nextPage: pageNum + 1,
                     };
                     resolve(detail);
@@ -207,11 +217,16 @@
             currentCount += medalDetail.medalList.length;
         }
         for (let medal of medalDetail.medalList) {
-            if (medal.intimacyEarnable && medal.isNotLiked) {
-                // 点赞打卡
-                let triggetLimit = 3;
-                for (; triggetLimit--;) {
-                    messageQueue.triggerLikeInteract(medal);
+            if (medal.intimacyEarnable) {
+                if (medal.isNotLiked) {
+                    // 点赞打卡
+                    let triggetLimit = 3;
+                    for (; triggetLimit--;) {
+                        messageQueue.triggerInteract("likeInteract", 1000, likeInteract, medal);
+                    }
+                } else if (medal.isNotShared && medal.isNotLive) {
+                    // 分享获取亲密度
+                    shareList.push(medal);
                 }
             }
             // 20级以上的发弹幕不会加亲密度无法判断，只能恩发了
@@ -225,6 +240,11 @@
             } else {
                 readyCount++;
             }
+        }
+        for (let index = 0; index < 5; index++) {
+            shareList.forEach(item => {
+                messageQueue.triggerInteract("shareInteract", 600, shareInteract, item);
+            });
         }
         afterDone();
     }
@@ -249,7 +269,7 @@
     }
 
     async function likeInteract(medal) {
-        console.log(`自动续牌-给${medal.userName}点赞`);
+        console.log(`自动续牌-给 ${medal.userName} 点赞`);
         return new Promise((resolve, reject) => {
             fetch("https://api.live.bilibili.com/xlive/web-ucenter/v1/interact/likeInteract", {
                 "headers": {
@@ -267,6 +287,30 @@
                         resolve(true);
                     } else {
                         console.warn(`自动续牌-${medal.userName}点赞失败`, json);
+                        resolve(false);
+                    }
+                });
+        });
+    }
+
+    async function shareInteract(medal) {
+        console.log(`自动续牌-分享 ${medal.userName} 的直播间`);
+        return new Promise((resolve, reject) => {
+            fetch("https://api.live.bilibili.com/xlive/web-room/v1/index/TrigerInteract", {
+                "headers": {
+                    "content-type": "application/x-www-form-urlencoded",
+                },
+                "body": `roomid=${medal.roomId}&csrf_token=${JCT}&csrf=${JCT}&interact_type=3`,
+                "method": "POST",
+                "mode": "cors",
+                "credentials": "include"
+            })
+                .then(response => response.json())
+                .then(json => {
+                    if (json.code == json.message) {
+                        resolve(true);
+                    } else {
+                        console.warn(`自动续牌-${medal.userName}的直播间分享失败`, json);
                         resolve(false);
                     }
                 });
