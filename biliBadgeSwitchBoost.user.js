@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.0.4
+// @version      1.0.5
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -85,6 +85,7 @@
         .medal-item .face:hover,
         .medal-item .search-user-avatar:hover {
             filter: drop-shadow(0px 0px 3px #FB7299);
+            cursor: alias;
         }
 
         .medal-item .face>img {
@@ -101,6 +102,10 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        .medal-wear-body .medal-item .name:hover{
+            color: #00aeec;
         }
         
         .medal-wear-body .medal-item .living-gif {
@@ -625,8 +630,11 @@
                 GM_setValue("currentlyWearing", this.currentlyWearing);
                 GM_setValue("operator", this.name);
             },
-            open: (uid) => {
+            openSpace: (uid) => {
                 window.open(`//space.bilibili.com/${uid}`);
+            },
+            openRoom: (rid) => {
+                window.open(`//live.bilibili.com/${rid}`);
             },
             togglePanel() {
                 this.panelStatus = !this.panelStatus;
@@ -694,7 +702,7 @@
                                 @click="currentlyWearing.medal.medal_id == item.medal.medal_id ? takeOff() : switchBadge(item.medal.medal_id,index)">
                                 <div class="medal-item-content">
                                     <template v-if="item.room_info.living_status == 1">
-                                        <div class="search-user-avatar p_relative avatar-small mr_md cs_pointer"  @click.stop="open(item.medal.target_id)">
+                                        <div class="search-user-avatar p_relative avatar-small mr_md cs_pointer"  @click.stop="openRoom(item.room_info.room_id)">
                                             <div class="avatar-wrap p_relative live-ani">
                                                 <div class="avatar-inner">
                                                     <div class="bili-avatar" style="width: 35px;height:35px;">
@@ -711,7 +719,7 @@
                                         </div>
                                     </template>
                                     <template v-else>
-                                        <div class="face" @click.stop="open(item.medal.target_id)">
+                                        <div class="face" @click.stop="openRoom(item.room_info.room_id)">
                                             <img :src="item.anchor_info.avatar">
                                             <span class="bili-avatar-right-icon" v-if="item.anchor_info.verify == 0"></span>
                                         </div>
@@ -729,7 +737,7 @@
                                                     {{item.medal.level}}
                                                 </div>
                                             </div>
-                                            <div class="name dp-i-block">{{item.anchor_info.nick_name}}</div>
+                                            <div class="name dp-i-block" @click.stop="openSpace(item.medal.target_id)">{{item.anchor_info.nick_name}}</div>
                                         </div>
                                         <div class="medal-content-footer">
                                             <transition enter-active-class="a-scale-in" leave-active-class="a-scale-out"
