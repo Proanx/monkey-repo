@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.0.5
+// @version      1.0.6
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -454,10 +454,10 @@
     }
     `);
 
-    unsafeWindow.vm = new Vue({
+    new Vue({
         el: '#medel_switch_box',
         async created() {
-            this.fansMedalInfo = Object.assign({}, this.fansMedalInfo, await this.getFansMedalInfo());
+            await this.getFansMedalInfo();
             let page = 1;
             while (await this.refreshMedalList(page++)) {
                 await this.sleep(1000);
@@ -549,6 +549,7 @@
                 let res = await fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/fans_medal_info?target_id=${uid}`, { credentials: 'include', });
                 let json = await res.json();
                 if (json.code == json.message) {
+                    this.fansMedalInfo = json.data;
                     return json.data;
                 }
                 alert("徽章初始化失败：", json.message);
@@ -636,11 +637,14 @@
             openRoom: (rid) => {
                 window.open(`//live.bilibili.com/${rid}`);
             },
-            togglePanel() {
+            async togglePanel() {
                 this.panelStatus = !this.panelStatus;
                 if (!this.panelStatus) {
                     document.querySelector(".medal-wear-body").scrollTop = 0;
                 } else {
+                    if (!this.fansMedalInfo.has_fans_medal) {
+                        await this.getFansMedalInfo();
+                    }
                     this.$nextTick(async () => {
                         let page = 1;
                         while (await this.refreshMedalList(page++)) {
@@ -792,16 +796,5 @@
             </div>
         `,
     });
-
-    // function toast() {
-    //     let id = Math.random() * 1000 >> 1;
-    //     let temp = document.createElement("div");
-    //     temp.innerHTML = `<div id="badgeSwitcher-${id}" class="link-toast info badgeToast" style="left: 16px;bottom:360px"><span class="toast-text">佩戴成功！信仰爆表！&lt;(▰˘◡˘▰)&gt;</span></div>`;
-    //     document.querySelector(".medal-section").append(temp.firstElementChild);
-    //     let toast = document.querySelector(`#badgeSwitcher-${id}`);
-    //     toast.style.opacity = 1;
-    //     setTimeout(() => {
-    //         fadeOut();
-    //     }, 1000);
 
 })();
