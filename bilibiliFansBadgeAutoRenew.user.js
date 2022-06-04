@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.1.24
+// @version      0.1.25
 // @description  发送弹幕+点赞3次+分享5次来获取经验值，仅会在不开播的情况下打卡
 // @author       Pronax
 // @match        *://t.bilibili.com/*
@@ -67,10 +67,7 @@
     formData.set("csrf_token", JCT);
 
     setTimeout(async () => {
-        if (GM_getValue("timestamp") != new Date().toLocaleDateString()) {
-            console.log("自动续牌-今天日子不对啊");
-            main();
-        }
+        main();
     }, 1000);
 
     // 主线程
@@ -216,6 +213,7 @@
         } else {
             currentCount += medalDetail.medalList.length;
         }
+        let danmuStatus = GM_getValue("timestampDanmu") != new Date().toLocaleDateString();
         for (let medal of medalDetail.medalList) {
             if (medal.intimacyEarnable) {
                 if (medal.isNotLiked) {
@@ -230,7 +228,7 @@
                 }
             }
             // 20级以上的发弹幕不会加亲密度无法判断，只能恩发了
-            if ((medal.isNotAttended && customDanmu[medal.roomId]) || medal.isDarkened || (medal.intimacyEarnable && medal.isNotAttended)) {
+            if (danmuStatus && (medal.isNotAttended && customDanmu[medal.roomId]) || medal.isDarkened || (medal.intimacyEarnable && medal.isNotAttended)) {
                 if (medal.isLive) {
                     console.log(`自动续牌-${medal.userName}正在直播，没有打卡`);
                     awaitList.add(medal);
@@ -441,7 +439,7 @@
             failedList.clear();
         } else if (awaitList.size == 0) {
             console.log("自动续牌-都搞定了");
-            GM_setValue("timestamp", new Date().toLocaleDateString());
+            GM_setValue("timestampDanmu", new Date().toLocaleDateString());
         }
     }
 
