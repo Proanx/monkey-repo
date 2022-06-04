@@ -648,7 +648,7 @@
                     this.$nextTick(async () => {
                         let page = 1;
                         while (await this.refreshMedalList(page++)) {
-                            await this.sleep(100);
+                            await this.sleep(1000);
                         }
                     });
                 }
