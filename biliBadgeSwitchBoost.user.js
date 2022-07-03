@@ -57,7 +57,6 @@
         }
         
         .medal-wear-body .medal-item {
-            cursor:pointer;
             padding: 5px 5px 3px;
             background: 0;
             border: 1px solid transparent;
@@ -102,6 +101,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            cursor:pointer;
         }
 
         .medal-wear-body .medal-item .name:hover{
@@ -457,11 +457,7 @@
     new Vue({
         el: '#medel_switch_box',
         async created() {
-            await this.getFansMedalInfo();
-            let page = 1;
-            while (await this.refreshMedalList(page++)) {
-                await this.sleep(1000);
-            }
+            await Promise.allSettled([this.getFansMedalInfo(), this.getCurrentWear()]);
             if (this.autoSwitch && this.fansMedalInfo.has_fans_medal && this.fansMedalInfo.my_fans_medal.medal_id != this.currentlyWearing.medal.medal_id) {
                 this.switchBadge(this.fansMedalInfo.my_fans_medal.medal_id);
             }
@@ -522,7 +518,7 @@
                 autoSwitch: GM_getValue("autoSwitch", false),
                 needSwitch: false,
                 panelStatus: false,
-                medalWall: [],
+                medalWall: GM_getValue("medalWall", []),
             }
         },
         watch: {
@@ -543,6 +539,21 @@
                         r(true);
                     }, ms);
                 });
+            },
+            async getCurrentWear() {
+                let uid = await ROOM_INFO_API.getUid();
+                let res = await fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=1&page_size=50`, { credentials: 'include', });
+                let json = await res.json();
+                if (json.code == json.message) {
+                    for (const item of json.data.special_list) {
+                        if (item.superscript == null) {
+                            this.currentlyWearing = item;
+                            break;
+                        }
+                    }
+                    return;
+                }
+                warn("获取当前佩戴失败：", json.message);
             },
             async getFansMedalInfo() {
                 let uid = await ROOM_INFO_API.getUid();
@@ -573,6 +584,9 @@
                                     }
                                 });
                                 this.medalWall.sort(this.sort);
+                                if (json.data.page_info.total_page == page) {
+                                    GM_setValue("medalWall", this.medalWall);
+                                }
                                 resolve(json.data.page_info.has_more && page < json.data.page_info.total_page);
                             } else {
                                 reject(false);
@@ -614,6 +628,7 @@
                         }
                     }
                 }
+                // 持久化用于从其他tab取出信息
                 GM_setValue("currentlyWearing", this.currentlyWearing);
                 GM_setValue("operator", this.name);
             },
@@ -671,9 +686,6 @@
                 }
             },
             sort(a, b) {
-                if (a.medal.wearing_status == 1) {
-                    this.currentlyWearing = a;
-                }
                 let count_a = a.medal.wearing_status * 600000000 + a.medal.level * 15000000 + a.medal.intimacy;
                 let count_b = b.medal.wearing_status * 600000000 + b.medal.level * 15000000 + b.medal.intimacy;
                 if (a.medal.target_id == this.fansMedalInfo.my_fans_medal.target_id) {
@@ -706,7 +718,7 @@
                                 @click="currentlyWearing.medal.medal_id == item.medal.medal_id ? takeOff() : switchBadge(item.medal.medal_id,index)">
                                 <div class="medal-item-content">
                                     <template v-if="item.room_info.living_status == 1">
-                                        <div class="search-user-avatar p_relative avatar-small mr_md cs_pointer"  @click.stop="openRoom(item.room_info.room_id)">
+                                        <a :href="'//live.bilibili.com/' + item.room_info.room_id" target="blank" @click.stop="" class="search-user-avatar p_relative avatar-small mr_md cs_pointer">
                                             <div class="avatar-wrap p_relative live-ani">
                                                 <div class="avatar-inner">
                                                     <div class="bili-avatar" style="width: 35px;height:35px;">
@@ -720,13 +732,13 @@
                                                 <div class="a-cycle a-cycle-2"></div>
                                                 <div class="a-cycle a-cycle-3"></div>
                                             </div>
-                                        </div>
+                                        </a>
                                     </template>
                                     <template v-else>
-                                        <div class="face" @click.stop="openRoom(item.room_info.room_id)">
+                                        <a :href="'//live.bilibili.com/' + item.room_info.room_id" target="blank" class="face" @click.stop="">
                                             <img :src="item.anchor_info.avatar">
                                             <span class="bili-avatar-right-icon" v-if="item.anchor_info.verify == 0"></span>
-                                        </div>
+                                        </a>
                                     </template>
                                     <div class="dp-i-block v-bottom w-100 p-relative">
                                         <div class="medal-content-head">
@@ -741,7 +753,7 @@
                                                     {{item.medal.level}}
                                                 </div>
                                             </div>
-                                            <div class="name dp-i-block" @click.stop="openSpace(item.medal.target_id)">{{item.anchor_info.nick_name}}</div>
+                                            <a :href="'//space.bilibili.com/' + item.medal.target_id" target="blank" @click.stop="" class="name dp-i-block">{{item.anchor_info.nick_name}}</a>
                                         </div>
                                         <div class="medal-content-footer">
                                             <transition enter-active-class="a-scale-in" leave-active-class="a-scale-out"
