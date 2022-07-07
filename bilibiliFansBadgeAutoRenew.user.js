@@ -12,12 +12,13 @@
 // @run-at       document-idle
 // ==/UserScript==
 
-// 结束后设置
+// 避免多页面并发
 
 (async function () {
     'use strict';
 
-    const JCT = document.cookie.match(/bili_jct=(\w*); /) && document.cookie.match(/bili_jct=(\w*); /)[1];
+    // 存在token刷新的情况，JCT可能会变动
+    var JCT = document.cookie.match(/bili_jct=(\w*); /) && document.cookie.match(/bili_jct=(\w*); /)[1];
     const SHUTUP = false;  // 测试用的，为true时会拦截打卡的网络请求
 
     if (!JCT) {
@@ -223,9 +224,6 @@
                     let count = +medal.getLikedCount();
                     medal.setLikedCount(++count);
                     if (json.code == json.message) {
-                        if (count >= 3) {
-                            medal.setLikedTimestamp(today);
-                        }
                         resolve(true);
                     } else {
                         console.warn(`自动续牌-${medal.userName()}点赞失败`, json);
@@ -254,9 +252,6 @@
                     let count = +medal.getSharedCount();
                     medal.setSharedCount(++count);
                     if (json.code == json.message) {
-                        if (medal.getSharedCount() >= 5) {
-                            medal.setSharedTimestamp(today);
-                        }
                         resolve(true);
                     } else {
                         console.warn(`自动续牌-${medal.userName()}的直播间分享失败`, json);
@@ -269,19 +264,26 @@
 
     async function sendMsg(item) {
         if (SHUTUP) { return; }
-        if (item.getCheckInCount() > 2) {
-            item.setCheckInTimestamp(today);
-            return;
-        }
         let msg;
         let uid = item.userId();
         let medalStatus = false;
         // 需要戴粉丝牌才能发言
-        if (item.getCheckInReason == "-403") {
+        if (item.getCheckInReason() == "-403") {
             medalStatus = true;
             await wearMedal(item.medalId());
         }
-        formData.set("msg", customDanmu[uid] || (msg = emojiList[(Math.random() * 100 >> 0) % emojiList.length], msg));
+        if (customDanmu[uid]) {
+            msg = customDanmu[uid];
+            let reg = new RegExp(`\(official\|room_${item.roomId()}\)_\\d+`);
+            // 判断内容符合表情包则添加表情标识
+            if (msg.match(reg)) {
+                formData.set("dm_type", 1);
+            }
+        } else {
+            formData.delete("dm_type");
+            msg = emojiList[(Math.random() * 100 >> 0) % emojiList.length];
+        }
+        formData.set("msg", msg);
         formData.set("roomid", item.roomId());
         formData.set("rnd", Math.floor(new Date() / 1000));
         fetch("//api.live.bilibili.com/msg/send", {
@@ -300,25 +302,34 @@
                 // 10030: 弹幕发送过快
                 // 1003: 禁言
                 // -403: 主播设置了发言门槛
+                // -111: csrf过期
                 switch (result.code) {
                     case 0:
                         if (result.code == result.msg) {
-                            item.setCheckInTimestamp(today);
+                            item.setCheckInCount(3);
                             break;
-                        } else if (result.msg == "k" && count == 0) {
-                            // 有些房间把打卡设置为了屏蔽词
-                            customDanmu[uid] = msg.replace("打卡", "");
+                        } else if (result.msg == "k") {
+                            if (count == 0) {
+                                // 有些房间把打卡设置为了屏蔽词
+                                // customDanmu[uid] = msg.replace("打卡", "");
+                            } else {
+                                // 表情包-泪目
+                                customDanmu[uid] = "official_103";
+                            }
                         }
-                        item.setCheckInCount(++count)
+                        item.setCheckInCount(++count);
                     case 10030:
                         item.setCheckInReason(result.code);
                         break;
+                    case -111:
+                        JCT = document.cookie.match(/bili_jct=(\w*); /)[1];
+                        return;
                     case 1003:
                     case 10024:
                         item.setForceStopTimestamp(today);
-                        item.setCheckInTimestamp(today);
                         item.setCheckInCount(count + 2);
                     case -403:
+                        item.setCheckInCount(++count);
                     default:
                         item.setCheckInReason(result.code);
                         item.setCheckInCount(++count);
@@ -388,7 +399,7 @@
             this.checkIn = {
                 count: 0,
                 failedReason: undefined,
-                timestamp: undefined,
+                timestamp: today,
             };
         }
         if (records.liked && records.liked.timestamp == today) {
@@ -396,7 +407,7 @@
         } else {
             this.liked = {
                 count: 0,
-                timestamp: undefined,
+                timestamp: today,
             };
         }
         if (records.shared && records.shared.timestamp == today) {
@@ -404,7 +415,7 @@
         } else {
             this.shared = {
                 count: 0,
-                timestamp: undefined,
+                timestamp: today,
             };
         }
         if (records.forceStop && records.forceStop.timestamp == today) {
@@ -427,11 +438,11 @@
     Medal.prototype.userName = function () { return this.info.anchor_info.nick_name; };
     Medal.prototype.roomId = function () { return this.info.room_info.room_id; };
     Medal.prototype.medalId = function () { return this.info.medal.medal_id; };
-    Medal.prototype.isCheckedIn = function () { return this.checkIn.timestamp == today; };
-    Medal.prototype.isShared = function () { return this.shared.timestamp == today; };
-    Medal.prototype.isLiked = function () { return this.liked.timestamp == today; };
+    Medal.prototype.isCheckedIn = function () { return this.checkIn.count >= 3; };
+    Medal.prototype.isShared = function () { return this.shared.count >= 5; };
+    Medal.prototype.isLiked = function () { return this.liked.count >= 3; };
     Medal.prototype.isLive = function () { return this.info.room_info.living_status == 1; };  // 0:没播   1:开播  2:录播 
-    Medal.prototype.isAttended = function () { return this.forceStop.timestamp == today || this.wasGuard() ? this.isLighted() : this.isCheckedIn() && this.isShared() && this.isLiked; };
+    Medal.prototype.isAttended = function () { return this.forceStop.timestamp == today || this.wasGuard() ? this.isLighted() : this.info.medal.today_feed >= 1200 || (this.isCheckedIn() && this.isShared() && this.isLiked()); };
     Medal.prototype.isNotCheckedIn = function () { return !this.isCheckedIn(); };
     Medal.prototype.isNotAttended = function () { return !this.isAttended(); };
     Medal.prototype.isNotShared = function () { return !this.isShared(); };
