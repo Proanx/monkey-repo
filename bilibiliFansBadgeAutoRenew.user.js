@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.1
-// @description  发送弹幕+点赞3次+分享5次来获取经验值，仅会在不开播的情况下打卡
+// @version      0.2.2
+// @description  发送弹幕+点赞，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
 // @include      /:\/\/t.bilibili.com/
@@ -50,6 +50,7 @@
     var customDanmu = { // 自定义打卡文字
         437744340: "王哥我爱你王哥",
         350024041: "打卡",
+        1833021: "打坐催播",
     };
     // ---------------------------------------------------------------------
 
@@ -168,15 +169,15 @@
                 if (medal.intimacyEarnable()) {
                     if (medal.isNotLiked()) {
                         // 点赞打卡
-                        for (let i = 0; i < 3; i++) {
-                            messageQueue.triggerInteract("likeInteract", 1000, likeInteract, medal);
-                        }
+                        // for (let i = 0; i < 3; i++) {
+                        messageQueue.triggerInteract("likeInteract", 1000, likeInteract, medal);
+                        // }
                         actionCount++;
                     }
-                    if (medal.isNotShared()) {
-                        shareList.push(medal);
-                        actionCount++;
-                    }
+                    // if (medal.isNotShared()) {
+                    //     shareList.push(medal);
+                    //     actionCount++;
+                    // }
                 }
             } else {
                 finished++;
@@ -316,6 +317,7 @@
                                 // 表情包-泪目
                                 customDanmu[uid] = "official_103";
                             }
+                            count -= 0.3; // 给多几次机会
                         }
                         item.setCheckInCount(++count);
                     case 10030:
@@ -440,9 +442,9 @@
     Medal.prototype.medalId = function () { return this.info.medal.medal_id; };
     Medal.prototype.isCheckedIn = function () { return this.checkIn.count >= 3; };
     Medal.prototype.isShared = function () { return this.shared.count >= 5; };
-    Medal.prototype.isLiked = function () { return this.liked.count >= 3; };
+    Medal.prototype.isLiked = function () { return this.liked.count >= 1; };
     Medal.prototype.isLive = function () { return this.info.room_info.living_status == 1; };  // 0:没播   1:开播  2:录播 
-    Medal.prototype.isAttended = function () { return this.forceStop.timestamp == today || this.wasGuard() ? this.isLighted() : this.info.medal.today_feed >= 1200 || (this.isCheckedIn() && this.isShared() && this.isLiked()); };
+    Medal.prototype.isAttended = function () { return this.forceStop.timestamp == today || this.wasGuard() ? this.isLighted() : this.info.medal.today_feed >= 200 || (this.isCheckedIn() && this.isShared() && this.isLiked()); };
     Medal.prototype.isNotCheckedIn = function () { return !this.isCheckedIn(); };
     Medal.prototype.isNotAttended = function () { return !this.isAttended(); };
     Medal.prototype.isNotShared = function () { return !this.isShared(); };
