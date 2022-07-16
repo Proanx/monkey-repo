@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.4
+// @version      0.2.5
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -40,7 +40,7 @@
             return;
     }
 
-    // 因为找到真实房间号有一些门槛，所以改用uid
+    // 因为找到真实房间号有一些门槛，所以改用UID ---------------------------------
     var whiteList = [   // 白名单   与黑名单同时配置时黑名单优先
         // 只有在名单内的人才会打卡
         // e.g. 672328094,
