@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.2
-// @description  发送弹幕+点赞，仅会在不开播的情况下打卡
+// @version      0.2.3
+// @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
 // @include      /:\/\/t.bilibili.com/
 // @icon         http://bilibili.com/favicon.ico
+// @require      https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.js
+// @require      https://greasyfork.org/scripts/447940-biliveheartwithtimeparam/code/BiliveHeartWithTimeParam.js?version=1070642
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @run-at       document-idle
@@ -54,6 +56,7 @@
     };
     // ---------------------------------------------------------------------
 
+    var watchingList = new Set();
     var loopTimes = 0;
     var medalMap = new Map();
     var today = new Date().toLocaleDateString();
@@ -173,6 +176,9 @@
                         messageQueue.triggerInteract("likeInteract", 1000, likeInteract, medal);
                         // }
                         actionCount++;
+                    } else if (medal.isNotWatched() && medal.isCheckedIn() && (!watchingList.has(medal.roomId()))) {
+                        // 挂机观看
+                        messageQueue.triggerInteract("watchLive", 1000, watchLive, medal);
                     }
                     // if (medal.isNotShared()) {
                     //     shareList.push(medal);
@@ -184,15 +190,15 @@
             }
         };
         // 分享打卡
-        let gap = 1000;
-        if (shareList.length <= 5) {
-            gap = 6000;
-        }
-        for (let i = 0; i < 5; i++) {
-            shareList.forEach(medal => {
-                messageQueue.triggerInteract("shareInteract", gap, shareInteract, medal);
-            });
-        }
+        // let gap = 1000;
+        // if (shareList.length <= 5) {
+        //     gap = 6000;
+        // }
+        // for (let i = 0; i < 5; i++) {
+        //     shareList.forEach(medal => {
+        //         messageQueue.triggerInteract("shareInteract", gap, shareInteract, medal);
+        //     });
+        // }
         if (finished == medalDetail.size) {
             GM_setValue("finished", today);
             let tomorrow = new Date(new Date().toLocaleDateString()).getTime() + 86410000;
@@ -260,6 +266,21 @@
                     }
                     saveRecords(medal);
                 });
+        });
+    }
+
+    async function watchLive(medal) {
+        console.log(`自动续牌-开始挂机观看 ${medal.userName()} 的直播间`);
+        if (SHUTUP) { return; }
+        return new Promise((resolve, reject) => {
+            let rid = medal.roomId();
+            let roomHeart = new RoomHeart(rid, (14 - medal.getWatchedCount()) * 5 + 1);
+            roomHeart.doneFunc = () => {
+                watchingList.delete(rid);
+                resolve(true);
+            }
+            watchingList.add(rid);
+            roomHeart.start();
         });
     }
 
@@ -420,6 +441,18 @@
                 timestamp: today,
             };
         }
+        if (records.watched && records.watched.timestamp == today) {
+            let watchTimes = Math.floor(this.getIntimacy() / 100);
+            this.isCheckedIn() && watchTimes--;
+            this.isLiked() && watchTimes--;
+            records.watched.count = watchTimes;
+            this.watched = records.watched;
+        } else {
+            this.watched = {
+                count: 0,
+                timestamp: today,
+            };
+        }
         if (records.forceStop && records.forceStop.timestamp == today) {
             this.forceStop = records.forceStop;
         } else {
@@ -430,6 +463,7 @@
     }
 
     // 基础
+    Medal.prototype.getIntimacy = function () { return this.info.medal.today_feed; };
     Medal.prototype.isZero = function () { return this.info.medal.today_feed < 99; };
     Medal.prototype.isLighted = function () { return this.info.medal.is_lighted; };
     Medal.prototype.isDarkened = function () { return !this.info.isLighted; };
@@ -444,13 +478,24 @@
     Medal.prototype.isShared = function () { return this.shared.count >= 5; };
     Medal.prototype.isLiked = function () { return this.liked.count >= 1; };
     Medal.prototype.isLive = function () { return this.info.room_info.living_status == 1; };  // 0:没播   1:开播  2:录播 
-    Medal.prototype.isAttended = function () { return this.forceStop.timestamp == today || this.wasGuard() ? this.isLighted() : this.info.medal.today_feed >= 200 || (this.isCheckedIn() && this.isShared() && this.isLiked()); };
+    Medal.prototype.isWatched = function () { return this.info.medal.today_feed == 1500; };
+    Medal.prototype.isAttended = function () {
+        if (this.forceStop.timestamp == today) {
+            return true;
+        }
+        if (this.wasGuard()) {
+            return this.isLighted();
+        } else {
+            return this.isWatched() && this.isCheckedIn() && this.isLiked();
+        }
+    };
     Medal.prototype.isNotCheckedIn = function () { return !this.isCheckedIn(); };
     Medal.prototype.isNotAttended = function () { return !this.isAttended(); };
     Medal.prototype.isNotShared = function () { return !this.isShared(); };
     Medal.prototype.isNotLiked = function () { return !this.isLiked(); };
     Medal.prototype.isNotLive = function () { return !this.isLive(); };
     Medal.prototype.isNotZero = function () { return !this.isZero(); };
+    Medal.prototype.isNotWatched = function () { return !this.isWatched() };
     // 打卡
     Medal.prototype.getCheckInCount = function () { return this.checkIn.count; };
     Medal.prototype.setCheckInCount = function (value) { return this.checkIn.count = value; };
@@ -468,6 +513,11 @@
     Medal.prototype.setSharedCount = function (value) { return this.shared.count = value; };
     Medal.prototype.getSharedTimestamp = function () { return this.shared.timestamp; };
     Medal.prototype.setSharedTimestamp = function (value) { return this.shared.timestamp = value; };
+    // 观看
+    Medal.prototype.getWatchedCount = function () { return this.watched.count; };
+    Medal.prototype.setWatchedCount = function (value) { return this.watched.count = value; };
+    Medal.prototype.getWatchedTimestamp = function () { return this.watched.timestamp; };
+    Medal.prototype.setWatchedTimestamp = function (value) { return this.watched.timestamp = value; };
     // 停止
     Medal.prototype.getForceStopTimestamp = function () { return this.forceStop.timestamp; };
     Medal.prototype.setForceStopTimestamp = function (value) { return this.forceStop.timestamp = value; };
