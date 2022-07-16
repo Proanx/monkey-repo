@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.3
+// @version      0.2.4
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -272,7 +272,7 @@
     async function watchLive(medal) {
         console.log(`自动续牌-开始挂机观看 ${medal.userName()} 的直播间`);
         if (SHUTUP) { return; }
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             let rid = medal.roomId();
             let roomHeart = new RoomHeart(rid, (14 - medal.getWatchedCount()) * 5 + 1);
             roomHeart.doneFunc = () => {
@@ -280,7 +280,12 @@
                 resolve(true);
             }
             watchingList.add(rid);
-            roomHeart.start();
+            let result = await roomHeart.start();
+            if (!result) {
+                medal.setWatchedCount = 15;
+                saveRecords(medal);
+                console.log(`自动续牌-${medal.userName()}的直播间没有设置分区，取消观看`);
+            }
         });
     }
 
@@ -347,10 +352,10 @@
                     case -111:
                         JCT = document.cookie.match(/bili_jct=(\w*); /)[1];
                         return;
-                    case 1003:
                     case 10024:
                         item.setForceStopTimestamp(today);
-                        item.setCheckInCount(count + 2);
+                    case 1003:
+                        count = 3;
                     case -403:
                         item.setCheckInCount(++count);
                     default:
@@ -478,7 +483,7 @@
     Medal.prototype.isShared = function () { return this.shared.count >= 5; };
     Medal.prototype.isLiked = function () { return this.liked.count >= 1; };
     Medal.prototype.isLive = function () { return this.info.room_info.living_status == 1; };  // 0:没播   1:开播  2:录播 
-    Medal.prototype.isWatched = function () { return this.info.medal.today_feed == 1500; };
+    Medal.prototype.isWatched = function () { return this.info.medal.today_feed >= 1500 || this.watched.count >= 15 };
     Medal.prototype.isAttended = function () {
         if (this.forceStop.timestamp == today) {
             return true;
