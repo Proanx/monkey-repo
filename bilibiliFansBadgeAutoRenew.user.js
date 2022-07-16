@@ -274,7 +274,7 @@
         if (SHUTUP) { return; }
         return new Promise(async (resolve, reject) => {
             let rid = medal.roomId();
-            let roomHeart = new RoomHeart(rid, (14 - medal.getWatchedCount()) * 5 + 1);
+            let roomHeart = new RoomHeart(rid, (14 - medal.getRealWatchedCount()) * 5 + 1);
             roomHeart.doneFunc = () => {
                 watchingList.delete(rid);
                 resolve(true);
@@ -282,7 +282,7 @@
             watchingList.add(rid);
             let result = await roomHeart.start();
             if (!result) {
-                medal.setWatchedCount = 15;
+                medal.setWatchedCount(15);
                 saveRecords(medal);
                 console.log(`自动续牌-${medal.userName()}的直播间没有设置分区，取消观看`);
             }
@@ -414,6 +414,7 @@
             checkIn: medal.checkIn,
             liked: medal.liked,
             shared: medal.shared,
+            watched: medal.watched,
             forceStop: medal.forceStop,
         });
     }
@@ -447,10 +448,6 @@
             };
         }
         if (records.watched && records.watched.timestamp == today) {
-            let watchTimes = Math.floor(this.getIntimacy() / 100);
-            this.isCheckedIn() && watchTimes--;
-            this.isLiked() && watchTimes--;
-            records.watched.count = watchTimes;
             this.watched = records.watched;
         } else {
             this.watched = {
@@ -519,6 +516,13 @@
     Medal.prototype.getSharedTimestamp = function () { return this.shared.timestamp; };
     Medal.prototype.setSharedTimestamp = function (value) { return this.shared.timestamp = value; };
     // 观看
+    Medal.prototype.getRealWatchedCount = function () {
+        // 计算真实次数
+        let watchTimes = Math.floor(this.getIntimacy() / 100);
+        this.isCheckedIn() && watchTimes--;
+        this.isLiked() && watchTimes--;
+        return watchTimes;
+    };
     Medal.prototype.getWatchedCount = function () { return this.watched.count; };
     Medal.prototype.setWatchedCount = function (value) { return this.watched.count = value; };
     Medal.prototype.getWatchedTimestamp = function () { return this.watched.timestamp; };
