@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.0.6
+// @version      1.0.7
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -18,9 +18,19 @@
     if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
 
     let controlPanelCtnrBox = document.querySelector(".medal-section");
+    let originMedalSelectorDebounce = null;
     if (controlPanelCtnrBox && Object.keys(controlPanelCtnrBox.dataset).length) {
-        // 浅拷贝一次，用于抹掉子元素的事件
-        controlPanelCtnrBox.innerHTML = `<span id="medal-selector" class="dp-i-block medal"><span class="action-item medal get-medal"></span></span>`;
+        // 隐藏原来的弹窗
+        GM_addStyle(`.bottom.dialog-ctnr.medal{display:none}`);
+        let template = document.createElement("div");
+        template.className = "medal-section";
+        template.innerHTML = `<span id="medal-selector" class="dp-i-block medal"><span class="action-item medal get-medal"></span></span>`;
+        for (let key in controlPanelCtnrBox.dataset) {
+            template.dataset[key] = controlPanelCtnrBox.dataset[key];
+        }
+        controlPanelCtnrBox.after(template);
+        controlPanelCtnrBox.style.display = "none";
+        // 列表元素
         let tempElement = document.createElement("div");
         tempElement.id = "medel_switch_box";
         document.querySelector(".bottom-actions").after(tempElement);
@@ -519,12 +529,25 @@
                 needSwitch: false,
                 panelStatus: false,
                 medalWall: GM_getValue("medalWall", []),
+                debounce: undefined,
             }
         },
         watch: {
             currentlyWearing: {
-                handler(val) {
+                handler(val, oldVal) {
+                    // 防止无意义更新
+                    if (oldVal && val.medal.medal_id == oldVal.medal.medal_id) {
+                        return;
+                    }
+                    clearTimeout(originMedalSelectorDebounce);
                     this.refreshMedal();
+                    // 借用原始徽章按钮来刷新徽章，第二次是为了关闭选择窗口
+                    originMedalSelectorDebounce = setTimeout(() => {
+                        controlPanelCtnrBox.children[0].click();
+                        setTimeout(() => {
+                            controlPanelCtnrBox.children[0].click();
+                        }, 300);
+                    }, 1000);
                 },
                 immediate: true
             },
@@ -540,8 +563,8 @@
                     }, ms);
                 });
             },
-            async getCurrentWear() {
-                let uid = await ROOM_INFO_API.getUid();
+            async getCurrentWear() {    // 获取当前佩戴粉丝牌
+                // let uid = await ROOM_INFO_API.getUid();
                 let res = await fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=1&page_size=50`, { credentials: 'include', });
                 let json = await res.json();
                 if (json.code == json.message) {
@@ -555,7 +578,7 @@
                 }
                 warn("获取当前佩戴失败：", json.message);
             },
-            async getFansMedalInfo() {
+            async getFansMedalInfo() {  // 用来获取是否拥有当前房间粉丝牌
                 let uid = await ROOM_INFO_API.getUid();
                 let res = await fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/fans_medal_info?target_id=${uid}`, { credentials: 'include', });
                 let json = await res.json();
@@ -653,17 +676,22 @@
                 window.open(`//live.bilibili.com/${rid}`);
             },
             async togglePanel() {
+                clearTimeout(this.debounce);
                 this.panelStatus = !this.panelStatus;
                 if (!this.panelStatus) {
-                    document.querySelector(".medal-wear-body").scrollTop = 0;
+                    this.debounce = setTimeout(() => {
+                        this.debounce = null;
+                    }, 3000);
                 } else {
+                    if (this.debounce) { return; }
                     if (!this.fansMedalInfo.has_fans_medal) {
-                        await this.getFansMedalInfo();
+                        this.getFansMedalInfo();
                     }
                     this.$nextTick(async () => {
+                        document.querySelector(".medal-wear-body").scrollTop = 0;
                         let page = 1;
                         while (await this.refreshMedalList(page++)) {
-                            await this.sleep(1000);
+                            await this.sleep(500);
                         }
                     });
                 }
