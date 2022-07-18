@@ -11,7 +11,7 @@
 // @run-at      document-end
 // ==/UserScript==
 class RoomHeart {
-    constructor(roomID, timeLimit = 70, fallback) {
+    constructor(roomID, timeLimit = 70, fallback = () => { }) {
         this.roomID = roomID;
         this.timeLimit = timeLimit;
         this.fallback = fallback;
