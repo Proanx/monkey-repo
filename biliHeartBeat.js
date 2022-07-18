@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        BiliveHeart
 // @namespace   https://github.com/lzghzr/TampermonkeyJS
-// @version     0.0.5.3
+// @version     0.0.5.4
 // @author      lzghzr
 // @description 在0.0.5的基础上修改了一下用于挂机经验
 // @include     /^https?:\/\/live\.bilibili\.com\/(?:blanc\/)?\d/
@@ -11,17 +11,15 @@
 // @run-at      document-end
 // ==/UserScript==
 class RoomHeart {
-    constructor(roomID, timeLimit = 70, fallback = () => { }) {
+    constructor(roomID, timeLimit = 70) {
         this.roomID = roomID;
         this.timeLimit = timeLimit;
-        this.fallback = fallback;
     }
     areaID;
     parentID;
     seq = 0;
     roomID;
     timeLimit;
-    fallback;
     get id() {
         return [this.parentID, this.areaID, this.seq, this.roomID];
     }
@@ -59,6 +57,7 @@ class RoomHeart {
         return this.getInfoByRoom();
     }
     doneFunc = function () { }
+    errorFunc = function () { }
     async getInfoByRoom() {
         if (this.roomID === 0)
             return false;
@@ -138,7 +137,7 @@ class RoomHeart {
                 try {
                     this.x();
                 } catch (error) {
-                    this.fallback(error);
+                    this.errorFunc(error);
                     throw error;
                 }
             }, this.heartBeatInterval * 1000);
@@ -177,7 +176,7 @@ class RoomHeart {
             setTimeout(() => this.x(), this.heartBeatInterval * 1000);
         } else {
             console.error(GM_info.script.name, `房间 ${this.roomID} 小心心 心跳失败`);
-            this.fallback(x);
+            this.errorFunc(x);
         }
     }
     sypder(str, rule) {
