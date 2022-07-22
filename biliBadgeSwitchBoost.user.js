@@ -703,7 +703,7 @@
                 if (!this.panelStatus) {
                     this.debounce = setTimeout(() => {
                         this.debounce = null;
-                    }, 3000);
+                    }, 2000);
                 } else {
                     if (this.debounce) { return; }
                     if (!this.fansMedalInfo.has_fans_medal) {
@@ -713,7 +713,7 @@
                         document.querySelector(".medal-wear-body").scrollTop = 0;
                         let page = 1;
                         while (await this.refreshMedalList(page++)) {
-                            await this.sleep(500);
+                            // 网络请求耗时20-200附近，添加延时会导致加载过慢
                         }
                     });
                 }
