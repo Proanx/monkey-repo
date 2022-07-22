@@ -467,13 +467,14 @@
     new Vue({
         el: '#medel_switch_box',
         async created() {
-            this.getFansMedalInfo((json) => {
-                if (this.autoSwitch && json.has_fans_medal) {
-                    this.switchBadge(json.my_fans_medal.medal_id);
-                }
-            });
+            let json = await this.getFansMedalInfo();
+            let assignMedal = true;
+            if (this.autoSwitch && json.has_fans_medal) {
+                assignMedal = false;
+                this.switchBadge(json.my_fans_medal.medal_id);
+            }
             let page = 1;
-            while (await this.refreshMedalList(page++, false)) {
+            while (await this.refreshMedalList(page++, assignMedal)) {
                 await this.sleep(1000);
             }
         },
@@ -616,7 +617,7 @@
                                     刷新当前佩戴的徽章
                                     special_list的内容不会超过3条，所以两次循环无所谓
                                 */
-                                if (assignMedal && page == 1) {
+                                if (page == 1 && assignMedal) {
                                     for (let item of json.data.special_list) {
                                         if (item.medal.wearing_status) {
                                             this.currentlyWearing = item;
@@ -625,7 +626,7 @@
                                         this.currentlyWearing = { medal: { medal_id: 0 } };
                                     }
                                 }
-                                
+
                                 let list = [].concat(json.data.list, json.data.special_list);
                                 list.forEach((item) => {
                                     let index = this.medalWallIndex.indexOf(item.medal.medal_id);
