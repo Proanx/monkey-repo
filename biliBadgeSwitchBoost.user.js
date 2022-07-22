@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.0.7
+// @version      1.0.8
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -467,9 +467,14 @@
     new Vue({
         el: '#medel_switch_box',
         async created() {
-            await Promise.allSettled([this.getFansMedalInfo(), this.getCurrentWear()]);
-            if (this.autoSwitch && this.fansMedalInfo.has_fans_medal && this.fansMedalInfo.my_fans_medal.medal_id != this.currentlyWearing.medal.medal_id) {
-                this.switchBadge(this.fansMedalInfo.my_fans_medal.medal_id);
+            this.getFansMedalInfo((json) => {
+                if (this.autoSwitch && json.has_fans_medal) {
+                    this.switchBadge(json.my_fans_medal.medal_id);
+                }
+            });
+            let page = 1;
+            while (await this.refreshMedalList(page++, false)) {
+                await this.sleep(1000);
             }
         },
         mounted: function () {
@@ -528,13 +533,21 @@
                 autoSwitch: GM_getValue("autoSwitch", false),
                 needSwitch: false,
                 panelStatus: false,
-                medalWall: GM_getValue("medalWall", []),
+                /* 
+                    本来是用于展示的，但是牌子多加载需要翻页的情况显示的全是脏数据 
+                    现在仅用于缓存存在的牌子提速自动换牌的速度
+                */
+                backUpMedalWall: GM_getValue("medalWall", []),
+                medalWall: [],
                 debounce: undefined,
             }
         },
         watch: {
             currentlyWearing: {
                 handler(val, oldVal) {
+                    // 持久化用于从其他tab取出信息
+                    GM_setValue("currentlyWearing", val);
+                    GM_setValue("operator", this.name);
                     // 防止无意义更新
                     if (oldVal && val.medal.medal_id == oldVal.medal.medal_id) {
                         return;
@@ -549,7 +562,7 @@
                         }, 300);
                     }, 1000);
                 },
-                immediate: true
+                immediate: false
             },
             autoSwitch(val) {
                 GM_setValue("autoSwitch", val);
@@ -578,27 +591,43 @@
                 }
                 warn("获取当前佩戴失败：", json.message);
             },
-            async getFansMedalInfo() {  // 用来获取是否拥有当前房间粉丝牌
+            async getFansMedalInfo(callback) {  // 用来获取是否拥有当前房间粉丝牌
                 let uid = await ROOM_INFO_API.getUid();
                 let res = await fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/fans_medal_info?target_id=${uid}`, { credentials: 'include', });
                 let json = await res.json();
                 if (json.code == json.message) {
                     this.fansMedalInfo = json.data;
+                    if (callback) { // 存在回调的情况下异步执行
+                        (async () => {
+                            callback(json.data);
+                        })();
+                    }
                     return json.data;
                 }
                 alert("徽章初始化失败：", json.message);
             },
-            async refreshMedalList(page = 1) {
+            async refreshMedalList(page = 1, assignMedal = true) {
                 return new Promise((resolve, reject) => {
                     fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=${page}&page_size=50`, { credentials: 'include', })
                         .then(res => res.json())
                         .then(json => {
                             if (json.code == json.message) {
+                                /* 
+                                    刷新当前佩戴的徽章
+                                    special_list的内容不会超过3条，所以两次循环无所谓
+                                */
+                                if (assignMedal && page == 1) {
+                                    for (let item of json.data.special_list) {
+                                        if (item.medal.wearing_status) {
+                                            this.currentlyWearing = item;
+                                            break;
+                                        }
+                                        this.currentlyWearing = { medal: { medal_id: 0 } };
+                                    }
+                                }
+                                
                                 let list = [].concat(json.data.list, json.data.special_list);
                                 list.forEach((item) => {
-                                    if (item.medal.wearing_status) {
-                                        this.currentlyWearing = item;
-                                    }
                                     let index = this.medalWallIndex.indexOf(item.medal.medal_id);
                                     if (index >= 0) {
                                         this.$set(this.medalWall, index, item);
@@ -606,8 +635,8 @@
                                         this.medalWall.push(item);
                                     }
                                 });
-                                this.medalWall.sort(this.sort);
                                 if (json.data.page_info.total_page == page) {
+                                    this.medalWall.sort(this.sort);
                                     GM_setValue("medalWall", this.medalWall);
                                 }
                                 resolve(json.data.page_info.has_more && page < json.data.page_info.total_page);
@@ -638,22 +667,16 @@
                 if (index) {
                     this.currentlyWearing = this.medalWall[index];
                 } else {
-                    let result = this.medalWall.find(item => {
+                    let result = this.backUpMedalWall.find(item => {
                         return badgeId == item.medal.medal_id;
                     });
                     if (result) {
                         this.currentlyWearing = result;
                     } else {
                         console.warn("徽章列表内找不到对应的徽章");
-                        let page = 1;
-                        while (await this.refreshMedalList(page++)) {
-                            await this.sleep(100);
-                        }
+                        this.getCurrentWear();
                     }
                 }
-                // 持久化用于从其他tab取出信息
-                GM_setValue("currentlyWearing", this.currentlyWearing);
-                GM_setValue("operator", this.name);
             },
             takeOff() {
                 this.currentlyWearing = { medal: { medal_id: 0 } };
@@ -666,8 +689,6 @@
                     "credentials": "include",
                     "body": params,
                 });
-                GM_setValue("currentlyWearing", this.currentlyWearing);
-                GM_setValue("operator", this.name);
             },
             openSpace: (uid) => {
                 window.open(`//space.bilibili.com/${uid}`);
