@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.0.8
+// @version      1.0.9
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -579,7 +579,7 @@
             },
             async getCurrentWear() {    // 获取当前佩戴粉丝牌
                 // let uid = await ROOM_INFO_API.getUid();
-                let res = await fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=1&page_size=50`, { credentials: 'include', });
+                let res = await fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=1&page_size=1`, { credentials: 'include', });
                 let json = await res.json();
                 if (json.code == json.message) {
                     for (const item of json.data.special_list) {
