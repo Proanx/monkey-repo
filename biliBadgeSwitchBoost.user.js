@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.0.9
+// @version      1.0.10
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -665,7 +665,7 @@
                 //     if (json.code == 0) {
                 //     }
                 // });
-                if (index) {
+                if (index >= 0) {
                     this.currentlyWearing = this.medalWall[index];
                 } else {
                     let result = this.backUpMedalWall.find(item => {
