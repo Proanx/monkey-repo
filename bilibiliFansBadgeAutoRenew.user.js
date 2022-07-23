@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.5
+// @version      0.2.6
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
 // @include      /:\/\/t.bilibili.com/
 // @icon         http://bilibili.com/favicon.ico
 // @require      https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.js
-// @require      https://greasyfork.org/scripts/447940-biliveheartwithtimeparam/code/BiliveHeartWithTimeParam.js?version=1070642
+// @require      https://greasyfork.org/scripts/447940-biliveheartwithtimeparam/code/BiliveHeartWithTimeParam.js?version=1071313
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @run-at       document-idle
@@ -279,6 +279,9 @@
                 watchingList.delete(rid);
                 resolve(true);
             }
+            roomHeart.errorFunc = () => {
+                watchingList.delete(rid);
+            }
             watchingList.add(rid);
             let result = await roomHeart.start();
             if (!result) {
@@ -327,6 +330,7 @@
                 let count = +item.getCheckInCount();
                 // 10024: 拉黑
                 // 10030: 弹幕发送过快
+                // 10031: 弹幕发送过快
                 // 1003: 禁言
                 // -403: 主播设置了发言门槛
                 // -111: csrf过期
@@ -338,7 +342,7 @@
                         } else if (result.msg == "k") {
                             if (count == 0) {
                                 // 有些房间把打卡设置为了屏蔽词
-                                // customDanmu[uid] = msg.replace("打卡", "");
+                                customDanmu[uid] = msg.replace("打卡", "");
                             } else {
                                 // 表情包-泪目
                                 customDanmu[uid] = "official_103";
@@ -347,13 +351,15 @@
                         }
                         item.setCheckInCount(++count);
                     case 10030:
+                    case 10031:
                         item.setCheckInReason(result.code);
                         break;
                     case -111:
                         JCT = document.cookie.match(/bili_jct=(\w*); /)[1];
                         return;
                     case 10024:
-                        item.setForceStopTimestamp(today);
+                        // 拉黑了也可以挂直播
+                        // item.setForceStopTimestamp(today);
                     case 1003:
                         count = 3;
                     case -403:
@@ -480,15 +486,15 @@
     Medal.prototype.isShared = function () { return this.shared.count >= 5; };
     Medal.prototype.isLiked = function () { return this.liked.count >= 1; };
     Medal.prototype.isLive = function () { return this.info.room_info.living_status == 1; };  // 0:没播   1:开播  2:录播 
-    Medal.prototype.isWatched = function () { return this.info.medal.today_feed >= 1500 || this.watched.count >= 15 };
+    Medal.prototype.isWatched = function () { return this.watched.count >= 15 };
     Medal.prototype.isAttended = function () {
         if (this.forceStop.timestamp == today) {
             return true;
         }
         if (this.wasGuard()) {
-            return this.isLighted();
+            return this.isLighted() && this.isCheckedIn();
         } else {
-            return this.isWatched() && this.isCheckedIn() && this.isLiked();
+            return this.info.medal.today_feed >= 1500 || (this.isWatched() && this.isCheckedIn() && this.isLiked());
         }
     };
     Medal.prototype.isNotCheckedIn = function () { return !this.isCheckedIn(); };
@@ -547,6 +553,7 @@
         (function addBtn() {
             if (!document.querySelector(".right-ctnr .icon-font.icon-good-1")) {
                 let icon = document.querySelector(".icon-font.icon-share");
+                if (!icon) { return; }  // 筛掉frame
                 let container = document.createElement("div");
                 container.innerHTML = `
                     <div class="bili-block-btn icon-ctnr live-skin-normal-a-text pointer" style="line-height: 16px;margin-left: 16px;margin-right: -5px;">
