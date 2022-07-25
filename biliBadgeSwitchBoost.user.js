@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.0.10
+// @version      1.0.11
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -546,13 +546,12 @@
         watch: {
             currentlyWearing: {
                 handler(val, oldVal) {
-                    // 持久化用于从其他tab取出信息
-                    GM_setValue("currentlyWearing", val);
-                    GM_setValue("operator", this.name);
                     // 防止无意义更新
                     if (oldVal && val.medal.medal_id == oldVal.medal.medal_id) {
                         return;
                     }
+                    // 持久化用于从其他tab取出信息
+                    GM_setValue("currentlyWearing", val);
                     clearTimeout(originMedalSelectorDebounce);
                     this.refreshMedal();
                     // 借用原始徽章按钮来刷新徽章，第二次是为了关闭选择窗口
@@ -678,6 +677,8 @@
                         this.getCurrentWear();
                     }
                 }
+                // 仅主动切换才保存操作人
+                GM_setValue("operator", this.name);
             },
             takeOff() {
                 this.currentlyWearing = { medal: { medal_id: 0 } };
@@ -690,6 +691,8 @@
                     "credentials": "include",
                     "body": params,
                 });
+                // 仅主动切换才保存操作人
+                GM_setValue("operator", this.name);
             },
             openSpace: (uid) => {
                 window.open(`//space.bilibili.com/${uid}`);
