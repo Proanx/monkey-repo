@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室简化
 // @namespace    http://tampermonkey.net/
-// @version      0.2.2		
+// @version      0.2.3		
 // @description  简化聊天室，就喜欢方方正正的
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -38,7 +38,7 @@
 	}
 	// 区别自己发送的弹幕
 	if (userId) {
-		GM_addStyle(`.chat-item.danmaku-item[data-uid="${userId}"] {border-color: #ccc !important;box-shadow: 0 0 3px 0px #ddd;}`);
+		GM_addStyle(`.chat-item.danmaku-item:not(.superChat-card-detail)[data-uid="${userId}"] {border-color: #ccc !important;box-shadow: 0 0 3px 0px #ddd;}`);
 	}
 
 	// 标题栏
