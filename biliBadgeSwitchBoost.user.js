@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.0.11
+// @version      1.0.12
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -500,8 +500,9 @@
                 }
             });
             document.querySelector("#gift-control-vm .section").onmouseenter = document.querySelector("#control-panel-ctnr-box").onmouseenter = () => {
-                if (this.autoSwitch && this.needSwitch && this.fansMedalInfo.my_fans_medal.medal_id != 0) {
-                    this.switchBadge(this.fansMedalInfo.my_fans_medal.medal_id);
+                let cRoomMedal = this.fansMedalInfo.my_fans_medal.medal_id;
+                if (this.autoSwitch && this.needSwitch && cRoomMedal != 0) {
+                    this.switchBadge(cRoomMedal, this.medalWallIndex.indexOf(cRoomMedal));
                     this.needSwitch = false;
                 }
             };
@@ -546,14 +547,17 @@
         watch: {
             currentlyWearing: {
                 handler(val, oldVal) {
-                    // 防止无意义更新
-                    if (oldVal && val.medal.medal_id == oldVal.medal.medal_id) {
-                        return;
-                    }
                     // 持久化用于从其他tab取出信息
                     GM_setValue("currentlyWearing", val);
                     clearTimeout(originMedalSelectorDebounce);
                     this.refreshMedal();
+                    /* 
+                        新旧ID相同的情况下也刷新牌子显示，因为牌子的数据可能会有变化
+                        但是牌子相同的情况下不需要调用网页刷新
+                    */
+                    if (oldVal && val.medal.medal_id == oldVal.medal.medal_id) {
+                        return;
+                    }
                     // 借用原始徽章按钮来刷新徽章，第二次是为了关闭选择窗口
                     originMedalSelectorDebounce = setTimeout(() => {
                         controlPanelCtnrBox.children[0].click();
