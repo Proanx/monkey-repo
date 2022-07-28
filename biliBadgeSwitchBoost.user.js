@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.0.12
+// @version      1.0.13
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -490,7 +490,7 @@
             });
             window.addEventListener('focus', e => {
                 let wearing = GM_getValue("currentlyWearing");
-                if (this.currentlyWearing.medal.medal_id != wearing.medal.medal_id) {
+                if (wearing && this.currentlyWearing.medal.medal_id != wearing.medal.medal_id) {
                     this.currentlyWearing = wearing;
                 }
                 if (this.name != GM_getValue("operator") && this.fansMedalInfo.my_fans_medal.medal_id != wearing.medal.medal_id) {
@@ -519,7 +519,6 @@
         data() {
             return {
                 name: Date.now().toString(16) + "-" + btoa(location.host),
-                jct: document.cookie.match(/bili_jct=(\w*); /)[1],
                 fansMedalInfo: {
                     "has_fans_medal": false,
                     "my_fans_medal": {
@@ -654,10 +653,11 @@
                 });
             },
             async switchBadge(badgeId, index) {
+                let jct = document.cookie.match(/bili_jct=(\w*); /)[1]
                 let params = new URLSearchParams();
                 params.set("medal_id", badgeId);
-                params.set("csrf_token", this.jct);
-                params.set("csrf", this.jct);
+                params.set("csrf_token", jct);
+                params.set("csrf", jct);
                 fetch("https://api.live.bilibili.com/xlive/web-room/v1/fansMedal/wear", {
                     credentials: 'include',
                     method: 'POST',
@@ -686,10 +686,11 @@
             },
             takeOff() {
                 this.currentlyWearing = { medal: { medal_id: 0 } };
+                let jct = document.cookie.match(/bili_jct=(\w*); /)[1]
                 let params = new URLSearchParams();
                 params.set("visit_id", '');
-                params.set("csrf_token", this.jct);
-                params.set("csrf", this.jct);
+                params.set("csrf_token", jct);
+                params.set("csrf", jct);
                 fetch("https://api.live.bilibili.com/xlive/web-room/v1/fansMedal/take_off", {
                     "method": "POST",
                     "credentials": "include",
