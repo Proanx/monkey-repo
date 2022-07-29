@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.6
+// @version      0.2.7
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -176,7 +176,8 @@
                         messageQueue.triggerInteract("likeInteract", 1000, likeInteract, medal);
                         // }
                         actionCount++;
-                    } else if (medal.isNotWatched() && medal.isCheckedIn() && (!watchingList.has(medal.roomId()))) {
+                    }
+                    if (medal.isNotWatched()) {
                         // 挂机观看
                         messageQueue.triggerInteract("watchLive", 1000, watchLive, medal);
                     }
@@ -358,8 +359,8 @@
                         JCT = document.cookie.match(/bili_jct=(\w*); /)[1];
                         return;
                     case 10024:
-                        // 拉黑了也可以挂直播
-                        // item.setForceStopTimestamp(today);
+                    // 拉黑了也可以挂直播
+                    // item.setForceStopTimestamp(today);
                     case 1003:
                         count = 3;
                     case -403:
@@ -474,7 +475,7 @@
     Medal.prototype.getIntimacy = function () { return this.info.medal.today_feed; };
     Medal.prototype.isZero = function () { return this.info.medal.today_feed < 99; };
     Medal.prototype.isLighted = function () { return this.info.medal.is_lighted; };
-    Medal.prototype.isDarkened = function () { return !this.info.isLighted; };
+    Medal.prototype.isDarkened = function () { return !this.info.medal.is_lighted; };
     Medal.prototype.isGuard = function () { return this.info.medal.guard_level != 0; };
     Medal.prototype.wasGuard = function () { return this.info.medal.level > 20; };
     Medal.prototype.intimacyEarnable = function () { return this.info.medal.level <= 20; };
@@ -492,7 +493,7 @@
             return true;
         }
         if (this.wasGuard()) {
-            return this.isLighted() && this.isCheckedIn();
+            return this.isLighted() && !(customDanmu[this.userId()] && this.isNotCheckedIn());
         } else {
             return this.info.medal.today_feed >= 1500 || (this.isWatched() && this.isCheckedIn() && this.isLiked());
         }
