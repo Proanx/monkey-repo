@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.0.14
+// @version      1.1.0
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -11,6 +11,11 @@
 // @require		 https://lib.baomitu.com/vue/2.6.14/vue.js
 // @require      https://greasyfork.org/scripts/439903-blive-room-info-api/code/blive_room_info_api.js?version=1037039
 // ==/UserScript==
+
+/* 
+* todo  加载动画移出动画group
+* todo  自动切换添加退出自动切换
+*/
 
 (function init() {
     'use strict';
@@ -35,12 +40,35 @@
         tempElement.id = "medel_switch_box";
         document.querySelector(".bottom-actions").after(tempElement);
     } else {
-        requestAnimationFrame(function () {
+        requestIdleCallback(function () {
             init();
-        });
+        }, { timeout: 1000 });
         return;
     }
 
+    // 加载动画
+    GM_addStyle(`
+        .medal-loading {
+            height: 30px;
+            color: #bbb;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .medal-loading>i.icon-link-world {
+            font-size: 12px;
+            margin-left: 5px;
+            animation: medal-loading-rotate 2s infinite;
+        }
+        .medal-loading>i.icon-info {
+            margin-right: 5px;
+        }
+        @keyframes medal-loading-rotate{
+            from {transform: rotate(0);}
+            to {transform: rotate(360deg);}
+        }
+    `);
     // body内的条目css
     GM_addStyle(`
         .medal-list-move {
@@ -473,10 +501,7 @@
                 assignMedal = false;
                 this.switchBadge(json.my_fans_medal.medal_id);
             }
-            let page = 1;
-            while (await this.refreshMedalList(page++, assignMedal)) {
-                await this.sleep(1000);
-            }
+            this.refreshMedalList(1, assignMedal);
         },
         mounted: function () {
             document.querySelector("#medal-selector").onclick = () => {
@@ -506,6 +531,15 @@
                     this.needSwitch = false;
                 }
             };
+            this.$refs.medalList.$el.addEventListener('scroll', () => {
+                let medalList = this.$refs.medalList.$el;
+                let baseline = medalList.scrollHeight - medalList.offsetHeight;
+                // 滚动条到最后10%的时候开始加载下一页
+                if (medalList.scrollTop > baseline - baseline * .1 && (!this.pageInfo.loading)) {
+                    this.pageInfo.loading = true;
+                    this.refreshMedalList(this.pageInfo.cPage + 1);
+                }
+            }, false);
         },
         computed: {
             medalWallIndex: function () {
@@ -534,6 +568,11 @@
                 autoSwitch: GM_getValue("autoSwitch", false),
                 needSwitch: false,
                 panelStatus: false,
+                pageInfo: {
+                    loading: false,
+                    cPage: 1,
+                    isLastPage: true
+                },
                 /* 
                     本来是用于展示的，但是牌子多加载需要翻页的情况显示的全是脏数据 
                     现在仅用于缓存存在的牌子提速自动换牌的速度
@@ -628,7 +667,7 @@
                                         this.currentlyWearing = { medal: { medal_id: 0 } };
                                     }
                                 }
-
+                                // 合并列表并排序
                                 let list = [].concat(json.data.list, json.data.special_list);
                                 list.forEach((item) => {
                                     let index = this.medalWallIndex.indexOf(item.medal.medal_id);
@@ -638,10 +677,16 @@
                                         this.medalWall.push(item);
                                     }
                                 });
+                                this.medalWall.sort(this.sort);
+                                // 仅最后一页时保存，否则可能缺少数据
                                 if (json.data.page_info.total_page == page) {
-                                    this.medalWall.sort(this.sort);
                                     GM_setValue("medalWall", this.medalWall);
                                 }
+                                // 保存页面数据
+                                this.pageInfo.loading = false;
+                                this.pageInfo.cPage = +json.data.page_info.current_page;
+                                this.pageInfo.isLastPage = page < json.data.page_info.total_page;
+                                // 返回是否有下一页
                                 resolve(json.data.page_info.has_more && page < json.data.page_info.total_page);
                             } else {
                                 reject(false);
@@ -705,7 +750,7 @@
             openRoom: (rid) => {
                 window.open(`//live.bilibili.com/${rid}`);
             },
-            async togglePanel() {
+            togglePanel() {
                 clearTimeout(this.debounce);
                 this.panelStatus = !this.panelStatus;
                 if (!this.panelStatus) {
@@ -717,12 +762,9 @@
                     if (!this.fansMedalInfo.has_fans_medal) {
                         this.getFansMedalInfo();
                     }
-                    this.$nextTick(async () => {
+                    this.$nextTick(() => {
                         document.querySelector(".medal-wear-body").scrollTop = 0;
-                        let page = 1;
-                        while (await this.refreshMedalList(page++)) {
-                            // 网络请求耗时20-200附近，添加延时会导致加载过慢
-                        }
+                        this.refreshMedalList();
                     });
                 }
             },
@@ -744,13 +786,29 @@
                 }
             },
             sort(a, b) {
-                let count_a = a.medal.wearing_status * 600000000 + a.medal.level * 15000000 + a.medal.intimacy;
-                let count_b = b.medal.wearing_status * 600000000 + b.medal.level * 15000000 + b.medal.intimacy;
+                // 等级排序
+                let count_a = a.medal.level * 15000000 + a.medal.intimacy;
+                let count_b = b.medal.level * 15000000 + b.medal.intimacy;
+                // 当前房间             置顶
                 if (a.medal.target_id == this.fansMedalInfo.my_fans_medal.target_id) {
                     count_a = Number.MAX_VALUE;
                 } else if (b.medal.target_id == this.fansMedalInfo.my_fans_medal.target_id) {
                     count_b = Number.MAX_VALUE;
-                } else if (a.medal.is_lighted == 0) {
+                }
+                // 当前佩戴             第二
+                else if (a.medal.wearing_status) {
+                    count_a = Number.MAX_VALUE - 1;
+                } else if (b.medal.wearing_status) {
+                    count_b = Number.MAX_VALUE - 1;
+                }
+                // 最近获得 or 其他     第三
+                else if (a.superscript) {
+                    count_a = Number.MAX_VALUE - a.superscript.type;
+                } else if (b.superscript) {
+                    count_b = Number.MAX_VALUE - b.superscript.type;
+                }
+                // 灰色牌子处理         置尾
+                else if (a.medal.is_lighted == 0) {
                     count_a = +a.medal.level;
                 } else if (b.medal.is_lighted == 0) {
                     count_b = +b.medal.level;
@@ -771,7 +829,7 @@
                             <span class="cb-icon svg-icon v-middle" :class="{'checkbox-selected':autoSwitch}"></span>
                             <span class="pointer dp-i-block v-middle">自动更换</span>
                         </div>
-                        <transition-group name="medal-list" tag="div" class="medal-wear-body">
+                        <transition-group name="medal-list" tag="div" class="medal-wear-body" ref="medalList">
                             <div class="medal-item" v-for="(item,index) in medalWall" :key="item.medal.medal_id"
                                 @click="currentlyWearing.medal.medal_id == item.medal.medal_id ? takeOff() : switchBadge(item.medal.medal_id,index)">
                                 <div class="medal-item-content">
@@ -848,6 +906,14 @@
                                     </div>
                                     <span class="dp-i-block level-span">Lv.{{item.medal.level + 1}}</span>
                                 </div>
+                            </div>
+                            <div class="medal-loading" key="medal-loading">
+                                <template v-if="pageInfo.isLastPage">
+                                    正在加载<i class="v-middle icon-font icon-link-world"></i>
+                                </template>
+                                <template v-else>
+                                    <i class="v-middle icon-font icon-info"></i>没有了
+                                </template>
                             </div>
                         </transition-group>
                         <div class="footer-line"></div>
