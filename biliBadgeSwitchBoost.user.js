@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.1.0
+// @version      1.1.1
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -445,6 +445,7 @@
         width: 27.5%;
         height: 27.5%;
         position: absolute;
+        z-index: 2;
         right: 0;
         bottom: -1px;
         background-size: cover;
@@ -535,7 +536,7 @@
                 let medalList = this.$refs.medalList.$el;
                 let baseline = medalList.scrollHeight - medalList.offsetHeight;
                 // 滚动条到最后10%的时候开始加载下一页
-                if (medalList.scrollTop > baseline - baseline * .1 && (!this.pageInfo.loading)) {
+                if (this.pageInfo.isLastPage == false && this.pageInfo.loading == false && medalList.scrollTop > baseline - baseline * .1) {
                     this.pageInfo.loading = true;
                     this.refreshMedalList(this.pageInfo.cPage + 1);
                 }
@@ -685,7 +686,7 @@
                                 // 保存页面数据
                                 this.pageInfo.loading = false;
                                 this.pageInfo.cPage = +json.data.page_info.current_page;
-                                this.pageInfo.isLastPage = page < json.data.page_info.total_page;
+                                this.pageInfo.isLastPage = page >= json.data.page_info.total_page;
                                 // 返回是否有下一页
                                 resolve(json.data.page_info.has_more && page < json.data.page_info.total_page);
                             } else {
@@ -756,13 +757,17 @@
                 if (!this.panelStatus) {
                     this.debounce = setTimeout(() => {
                         this.debounce = null;
+                        // 临时处理，防止第二次打开后未翻页脏数据
+                        this.medalWall = this.medalWall.slice(0, 50);
                     }, 2000);
                 } else {
                     if (this.debounce) { return; }
-                    if (!this.fansMedalInfo.has_fans_medal) {
+                    // 刷新本房间粉丝牌状态
+                    if (this.fansMedalInfo.has_fans_medal == false) {
                         this.getFansMedalInfo();
                     }
                     this.$nextTick(() => {
+                        // 只能在nexttick里面不然元素处于display:none时无法起作用
                         document.querySelector(".medal-wear-body").scrollTop = 0;
                         this.refreshMedalList();
                     });
@@ -821,7 +826,7 @@
                 <div class="medal-ctnr none-select">
                     <div class="medal-wear-component">
                         <h1 class="dp-i-block title">
-                            我的粉丝勋章
+                            粉丝牌
                         </h1>
                         <a href="http://link.bilibili.com/p/help/index#/audience-fans-medal" target="_blank"
                             class="dp-i-block qs-icon"></a>
@@ -830,7 +835,9 @@
                             <span class="pointer dp-i-block v-middle">自动更换</span>
                         </div>
                         <transition-group name="medal-list" tag="div" class="medal-wear-body" ref="medalList">
-                            <div class="medal-item" v-for="(item,index) in medalWall" :key="item.medal.medal_id"
+                            <div class="medal-item" v-for="(item,index) in medalWall" 
+                                :key="item.medal.medal_id" :data-uid="item.medal.target_id" :data-rid="item.room_info.room_id" 
+                                :data-uname="item.anchor_info.nick_name.toLowerCase()" :data-mname="item.medal.medal_name.toLowerCase()"
                                 @click="currentlyWearing.medal.medal_id == item.medal.medal_id ? takeOff() : switchBadge(item.medal.medal_id,index)">
                                 <div class="medal-item-content">
                                     <template v-if="item.room_info.living_status == 1">
@@ -908,7 +915,7 @@
                                 </div>
                             </div>
                             <div class="medal-loading" key="medal-loading">
-                                <template v-if="pageInfo.isLastPage">
+                                <template v-if="!pageInfo.isLastPage">
                                     正在加载<i class="v-middle icon-font icon-link-world"></i>
                                 </template>
                                 <template v-else>
