@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.8
+// @version      0.2.9
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -14,7 +14,9 @@
 // @run-at       document-idle
 // ==/UserScript==
 
-// 避免多页面并发
+/* 
+* todo  避免多页面并发
+*/
 
 (async function () {
     'use strict';
@@ -136,7 +138,8 @@
 
     async function main(pageNum = 1) {
         today = new Date().toLocaleDateString();
-        if (today == GM_getValue("finished")) {
+        let my_id = document.cookie.match(/DedeUserID=(\d*); /)[1];
+        if (`${my_id}-${today}` == GM_getValue("finished")) {
             let tomorrow = new Date(new Date().toLocaleDateString()).getTime() + 86410000;
             setTimeout(main, tomorrow - Date.now());
             console.log(`自动续牌-今日已打卡完毕，预计在 ${new Date(tomorrow).toLocaleString()} 开始下一轮打卡`);
@@ -155,18 +158,17 @@
             await messageQueue.hangingUp("sendDanmu");
         } while (result.hasNext);
         if (finished) {
-            GM_setValue("finished", today);
+            GM_setValue("finished", `${my_id}-${today}`);
             let tomorrow = new Date(new Date().toLocaleDateString()).getTime() + 86410000;
             setTimeout(main, tomorrow - Date.now());
+            console.log(`自动续牌-主流程执行完毕，明日0点会开始下一轮打卡`);
+        } else {
+            setTimeout(main, 60 * 1000 * 10);
+            console.log(`自动续牌-预计十分钟后执行下一轮打卡`);
         }
-        console.log(`自动续牌-主流程执行完毕`);
     }
 
-    /**
-     * 获取并初始化徽章列表
-     * @param {integer} pageNum 页数
-     * @returns none
-     */
+    // 获取并初始化徽章列表
     async function getMedalDetail(pageNum = 1) {
         return new Promise((resolve, reject) => {
             fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=${pageNum}&page_size=50`, {
@@ -219,9 +221,9 @@
                     messageQueue.triggerInteract("likeInteract", likeInteract, medal, 1000);
                     // }
                 }
-                if (medal.isNotWatched()) {
+                if (medal.isNotWatched() && !watchingList.has(medal.roomId())) {
                     // 挂机观看
-                    messageQueue.triggerInteract("watchLive", watchLive, medal, 1000);
+                    messageQueue.triggerInteract("watchLive", watchLive, medal, 1800);
                 }
                 // if (medal.isNotShared()) {
                 //     shareList.push(medal);
@@ -239,7 +241,7 @@
         //     });
         // }
         // 完成后保存标志
-        if (finished == medalDetail.size) {
+        if (finished == medalDetail.length) {
             return true;
         }
     }
@@ -404,7 +406,10 @@
                             count = 3;
                             returnValue = true;
                         case -403:
-                            count++;
+                            count += 1.6;
+                            if (count > 3) {
+                                returnValue = true;
+                            }
                         default:
                             item.setCheckInCount(++count);
                             item.setCheckInReason(result.code);
