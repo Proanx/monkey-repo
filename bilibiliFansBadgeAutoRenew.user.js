@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.9
+// @version      0.2.10
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -59,6 +59,7 @@
     };
     // ---------------------------------------------------------------------
 
+    let my_id = document.cookie.match(/DedeUserID=(\d*); /)[1];
     let today = new Date().toLocaleDateString();
     let watchingList = new Set();
     let loopTimes = 0;
@@ -138,7 +139,6 @@
 
     async function main(pageNum = 1) {
         today = new Date().toLocaleDateString();
-        let my_id = document.cookie.match(/DedeUserID=(\d*); /)[1];
         if (`${my_id}-${today}` == GM_getValue("finished")) {
             let tomorrow = new Date(new Date().toLocaleDateString()).getTime() + 86410000;
             setTimeout(main, tomorrow - Date.now());
@@ -476,11 +476,11 @@
     }
 
     function getRecords(medalId) {
-        return GM_getValue(medalId, {});
+        return GM_getValue(`${my_id}-${medalId}`, {});
     }
 
     async function saveRecords(medal) {
-        return GM_setValue(medal.medalId(), {
+        return GM_setValue(`${my_id}-${medal.medalId()}`, {
             checkIn: medal.checkIn,
             liked: medal.liked,
             shared: medal.shared,
@@ -657,7 +657,7 @@
                                 let record = getRecords(fansMedalInfo.medal_id);
                                 record.liked.count = record.liked.count + 1;
                                 record.liked.timestamp = new Date().toLocaleDateString();
-                                GM_setValue(fansMedalInfo.medal_id, {
+                                GM_setValue(`${my_id}-${fansMedalInfo.medal_id}`, {
                                     checkIn: record.checkIn,
                                     liked: record.liked,
                                     shared: record.shared,
