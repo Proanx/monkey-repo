@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.1.1
+// @version      1.1.2
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -21,6 +21,10 @@
     'use strict';
 
     if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
+
+    // 默认粉丝牌UID   如果拥有该用户的粉丝牌会在退出直播间时切换到这个粉丝牌
+    // 为falsey时关闭此功能
+    let defaultMedalUid = 0;
 
     let controlPanelCtnrBox = document.querySelector(".medal-section");
     let originMedalSelectorDebounce = null;
@@ -508,6 +512,16 @@
             document.querySelector("#medal-selector").onclick = () => {
                 this.togglePanel();
             };
+            // 如果有默认粉丝牌，则退出直播间时换上默认粉丝牌
+            if (defaultMedalUid) {
+                this.getFansMedalInfo(defaultMedalUid, (json, context) => {
+                    if (json.has_fans_medal == false) { return; }
+                    let index = this.medalWallIndex.indexOf(json.my_fans_medal.medal_id);
+                    window.addEventListener('beforeunload', () => {
+                        context.switchBadge(json.my_fans_medal.medal_id, index);
+                    });
+                });
+            }
             window.addEventListener('click', e => {
                 if (e.target.closest(".medal") == null && this.panelStatus) {
                     this.panelStatus = false;
@@ -634,15 +648,22 @@
                 }
                 warn("获取当前佩戴失败：", json.message);
             },
-            async getFansMedalInfo(callback) {  // 用来获取是否拥有当前房间粉丝牌
-                let uid = await ROOM_INFO_API.getUid();
+            async getFansMedalInfo(uid, callback) {  // 用来获取是否拥有指定房间粉丝牌
+                let muid = undefined;
+                if (!uid) {
+                    muid = uid = await ROOM_INFO_API.getUid();
+                }
                 let res = await fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/fans_medal_info?target_id=${uid}`, { credentials: 'include', });
                 let json = await res.json();
                 if (json.code == json.message) {
-                    this.fansMedalInfo = json.data;
-                    if (callback) { // 存在回调的情况下异步执行
+                    // 仅在获取当前房间信息时赋值
+                    if (muid == uid) {
+                        this.fansMedalInfo = json.data;
+                    }
+                    if (callback) {
+                        // 存在回调的情况下异步执行
                         (async () => {
-                            callback(json.data);
+                            callback(json.data, this);
                         })();
                     }
                     return json.data;
@@ -660,12 +681,13 @@
                                     special_list的内容不会超过3条，所以两次循环无所谓
                                 */
                                 if (page == 1 && assignMedal) {
+                                    // 防止在其他地方取消牌子后插件无反应
+                                    this.currentlyWearing = { medal: { medal_id: 0 } };
                                     for (let item of json.data.special_list) {
                                         if (item.medal.wearing_status) {
                                             this.currentlyWearing = item;
                                             break;
                                         }
-                                        this.currentlyWearing = { medal: { medal_id: 0 } };
                                     }
                                 }
                                 // 合并列表并排序
