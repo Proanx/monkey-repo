@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.1.2
+// @version      1.1.3
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -26,6 +26,7 @@
     // 为falsey时关闭此功能
     let defaultMedalUid = 0;
 
+    let my_id = document.cookie.match(/DedeUserID=(\d*); /)[1];
     let controlPanelCtnrBox = document.querySelector(".medal-section");
     let originMedalSelectorDebounce = null;
     if (controlPanelCtnrBox && Object.keys(controlPanelCtnrBox.dataset).length) {
@@ -529,11 +530,11 @@
                 }
             });
             window.addEventListener('focus', e => {
-                let wearing = GM_getValue("currentlyWearing");
+                let wearing = GM_getValue(`currentlyWearing-${my_id}`);
                 if (wearing && this.currentlyWearing.medal.medal_id != wearing.medal.medal_id) {
                     this.currentlyWearing = wearing;
                 }
-                if (this.name != GM_getValue("operator") && this.fansMedalInfo.my_fans_medal.medal_id != wearing.medal.medal_id) {
+                if (this.name != GM_getValue(`operator-${my_id}`) && this.fansMedalInfo.my_fans_medal.medal_id != wearing.medal.medal_id) {
                     this.needSwitch = true;
                 } else {
                     this.needSwitch = false;
@@ -580,7 +581,7 @@
                         medal_id: 0
                     }
                 },
-                autoSwitch: GM_getValue("autoSwitch", false),
+                autoSwitch: GM_getValue(`autoSwitch-${my_id}`, false),
                 needSwitch: false,
                 panelStatus: false,
                 pageInfo: {
@@ -592,7 +593,7 @@
                     本来是用于展示的，但是牌子多加载需要翻页的情况显示的全是脏数据 
                     现在仅用于缓存存在的牌子提速自动换牌的速度
                 */
-                backUpMedalWall: GM_getValue("medalWall", []),
+                backUpMedalWall: GM_getValue(`medalWall-${my_id}`, []),
                 medalWall: [],
                 debounce: undefined,
             }
@@ -601,7 +602,7 @@
             currentlyWearing: {
                 handler(val, oldVal) {
                     // 持久化用于从其他tab取出信息
-                    GM_setValue("currentlyWearing", val);
+                    GM_setValue(`currentlyWearing-${my_id}`, val);
                     clearTimeout(originMedalSelectorDebounce);
                     this.refreshMedal();
                     /* 
@@ -622,7 +623,7 @@
                 immediate: false
             },
             autoSwitch(val) {
-                GM_setValue("autoSwitch", val);
+                GM_setValue(`autoSwitch-${my_id}`, val);
             }
         },
         methods: {
@@ -703,7 +704,7 @@
                                 this.medalWall.sort(this.sort);
                                 // 仅最后一页时保存，否则可能缺少数据
                                 if (json.data.page_info.total_page == page) {
-                                    GM_setValue("medalWall", this.medalWall);
+                                    GM_setValue(`medalWall-${my_id}`, this.medalWall);
                                 }
                                 // 保存页面数据
                                 this.pageInfo.loading = false;
@@ -750,7 +751,7 @@
                     }
                 }
                 // 仅主动切换才保存操作人
-                GM_setValue("operator", this.name);
+                GM_setValue(`operator-${my_id}`, this.name);
             },
             takeOff() {
                 this.currentlyWearing = { medal: { medal_id: 0 } };
@@ -765,7 +766,7 @@
                     "body": params,
                 });
                 // 仅主动切换才保存操作人
-                GM_setValue("operator", this.name);
+                GM_setValue(`operator-${my_id}`, this.name);
             },
             openSpace: (uid) => {
                 window.open(`//space.bilibili.com/${uid}`);
