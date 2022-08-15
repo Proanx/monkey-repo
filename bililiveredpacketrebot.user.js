@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.1.16
+// @version         0.1.17
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -28,11 +28,13 @@
 
     const RED_PACKET_ICON = "🧧";
     const GIFT_ICON = "🎁";
-    const JCT = document.cookie.match(/bili_jct=(\w*); /)[1];
-    const MY_ID = document.cookie.match(/DedeUserID=(\d+);/)[1];
     const ROOM_ID = await ROOM_INFO_API.getRid();
     const ROOM_USER_ID = await ROOM_INFO_API.getUid();
     const FOLLOWED = await getFollowStatus(ROOM_USER_ID);
+    const JCT = function () {
+        return document.cookie.match(/bili_jct=(\w*); /)[1];
+    }
+    const MY_ID = () => { document.cookie.match(/DedeUserID=(\d+);/)[1]; }
 
     window.addEventListener('focus', e => {
         giftCount = 0;
@@ -51,11 +53,9 @@
     // var giftList = new Map();
 
     var formData = new FormData();
-    formData.set("csrf", JCT);
     formData.set("visit_id", "");
     formData.set("jump_from", "");
     formData.set("session_id", "");
-    formData.set("csrf_token", JCT);
     formData.set("room_id", ROOM_ID);
     formData.set("ruid", ROOM_USER_ID);
     formData.set("spm_id", "444.8.red_envelope.extract");
@@ -74,21 +74,25 @@
         }
     });
 
-    fetch(`https://api.live.bilibili.com/xlive/lottery-interface/v1/lottery/getLotteryInfoWeb?roomid=${ROOM_ID}`)
-        .then(res => res.json())
-        .then(json => {
-            if (json.data.popularity_red_pocket && json.data.popularity_red_pocket[0].user_status == 2) {
-                let message = {
-                    data: json.data.popularity_red_pocket[0]
-                };
-                setTimeout(() => {
-                    drawRedPacket(message);
-                }, Math.random() * 3000);
-            }
-        });
+    getLottery();
 
-    function drawRedPacket(message) {
-        if (GM_getValue("limitWarning") == new Date().toLocaleDateString('zh')) {
+    function getLottery(retry) {
+        fetch(`https://api.live.bilibili.com/xlive/lottery-interface/v1/lottery/getLotteryInfoWeb?roomid=${ROOM_ID}`)
+            .then(res => res.json())
+            .then(json => {
+                if (json.data.popularity_red_pocket && json.data.popularity_red_pocket[0].user_status == 2) {
+                    let message = {
+                        data: json.data.popularity_red_pocket[0]
+                    };
+                    setTimeout(() => {
+                        drawRedPacket(message, retry);
+                    }, Math.random() * 3000);
+                }
+            });
+    }
+
+    function drawRedPacket(message, retry) {
+        if (GM_getValue(`limitWarning-${MY_ID()}`) == new Date().toLocaleDateString('zh')) {
             return;
         }
 
@@ -104,6 +108,8 @@
         //     initGiftList();
         // }
 
+        formData.set("csrf", JCT());
+        formData.set("csrf_token", JCT());
         formData.set("lot_id", message.data.lot_id);
 
         fetch("https://api.live.bilibili.com/xlive/lottery-interface/v1/popularityRedPocket/RedPocketDraw", {
@@ -117,20 +123,50 @@
                     switch (json.code) {
                         case 1009109:
                             showMessage(json.message, "warning", null, false);
-                            GM_setValue("limitWarning", new Date().toLocaleDateString('zh'));
+                            GM_setValue(`limitWarning-${MY_ID()}`, new Date().toLocaleDateString('zh'));
                             return;
                         case 1009114:       // 已抽奖
                             let countdown = message.data.end_time * 1000 - Date.now();
-                            notice = showMessage(`坐等 ${message.data.sender_name} 的红包开奖<br>红包ID：${message.data.lot_id}`, "info", "啊哈哈哈哈哈哈，红包来咯", countdown);
+                            notice = showMessage(`
+                                坐等 ${message.data.sender_name} 的红包开奖
+                                <br>
+                                红包ID：${message.data.lot_id}
+                                <br>
+                                <span>
+                                    总价值：
+                                    <span class="coin-type dp-i-block v-middle none-select">
+                                        <i class="currency-icon" style="background-image: url(&quot;data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAABDBJREFUaAXVWt1rFFcU/92Z3Z3sJiHRxBhNRe0ihSLSF20fBBWDL/og2Pf+A774IKGU0gXf2jcf/RMsQkXwg4IgVKxUUBB9SJssRtGQaLr52J1sZmduz93qujt752Nn713WE8jOPeeee36/O+d+zQzwiQtThZ8/K2QwZBxAzctGtmlhDVP4h7GCF1k3okIqwh7LzDmBL+Iv1NxDsRyqVKvIrtH/b2PVD6lkhNjimxaMw+A8HvgPrXJ+jhcLox+KSX/VEPC84UQA0hhK5NfkpIZAU4O9vow1Bji/auLN822B4KpsBOCB5kDDFrbz14VNqd3LcEx9v8IYC204dBbi85e+ANzLFOAo5XhOGkinkrES9ctNDOICmywsyUIFEuALl/Jw3CfUs13nqSxwRzrGijRaDrGJwobfLziFHPdnZeANC8hM+GO3l70twFmlsL6s4nw/1tlFcvjJ7xRMQKSNKjEHgaGD8Vuz54HyLNVvSX8pnpBZiMfosviYOqqZ/RzI7vO7SPGEEPD797icy8cK2L8EWBpgA5Ek+peAgG6Y/UHAfvMrSn8ew9bynUhAnVbQfgectafYXPkD3KvCeXe3U3yR9bUS4LV1VJZvNkAY1njjWtWFVgLlpRvw3I+LkpGZVIW70Y42Altrj+Fs/N0IJC4Ma2dLWUVBCwGvtorK0u02fIa1q03XrUIDAY7K4nUatLSv8ckncQeqq4/gVIo+6LQmMRMs0+eD2HNWYC//3gZeKAxLbGXU33CFLXKUF3+j1HHkBDTMQPWOkUZLoKz++wA1+2Wgp2GJKdSDV5mjFfk2PLs9zQKdQwxh54EQt1YTdzdgvw1fZZ3SQ5QeToO7lbozM3MYPXxL5FZrYx2WFBGw6cjsNkIbBIqLv6aZSIyPZmHikGPQjrNLUULAyOzA8GffQcz/qYHdMGi2WV+4gtrmYiC8XH6GbN0PQSUEBMpUbp/4aYgnzrYBYk2cQXqb9IQY4BGs7r4LZG1zh/ZAtsxS307k9l+Q2pIotRAI6n3xDGcw/wMg8l+RaCJQksKzJs8hNXpEakuq1EOABrNfzIEpZPee96u7LveEAAND7sCPlDrR7z46ZaSHgG8GssaOIzX8VafYYtXXTsCkNSE7cToWmCSV9BBw1+pYROoM7jqrZMUNIqeFQHroS4JOTwfHT8K0poJiK9ErW4mb0WTHp5EdO0GnmOgHU81+Sa613IE6EBXgefRbWH0EknRnsw9tR+jQ0KyRXvcvAcm5WsYghABbljn0RGe/AOw5fygpnrBBfJ9aoDlQgdTK9MbleXRD4gAktiHvT20tDgwCT5uEEZihZyGnlLyd5PRtgejVxMIWMIJfZO6BKcTyhVmk8DWRuEfzYftTKllrqnWMlSn+NZjpb9hY4f/V0ReD+crSYv1jjlepHVKjLiWvcezBYtQXLf8BGOoetC6LwK8AAAAASUVORK5CYII=&quot;);"></i>
+                                    </span>
+                                    <span class="text">${(message.data.total_price / 100).toFixed(0)}</span>
+                                </span>
+                            `, "info", "啊哈哈哈哈哈哈，红包来咯", countdown);
                             unpacking = true;
                             updateTabTitle();
                             return;
+                        case 1009106:       // 提示参数错误，尝试重试
+                            if (!retry) {
+                                getLottery(true);
+                                return;
+                            }
+                            break;
                         default:
                     }
                     showMessage(json.message, "error", "抢红包失败", false);
                 } else {
                     let countdown = message.data.end_time * 1000 - Date.now();
-                    notice = showMessage(`坐等 ${message.data.sender_name} 的红包开奖<br>红包ID：${message.data.lot_id}`, "info", "啊哈哈哈哈哈哈，红包来咯", countdown);
+                    notice = showMessage(`
+                        坐等 ${message.data.sender_name} 的红包开奖
+                        <br>
+                        红包ID：${message.data.lot_id}
+                        <br>
+                        <span>
+                            总价值：
+                            <span class="coin-type dp-i-block v-middle none-select">
+                                <i class="currency-icon" style="background-image: url(&quot;data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAABDBJREFUaAXVWt1rFFcU/92Z3Z3sJiHRxBhNRe0ihSLSF20fBBWDL/og2Pf+A774IKGU0gXf2jcf/RMsQkXwg4IgVKxUUBB9SJssRtGQaLr52J1sZmduz93qujt752Nn713WE8jOPeeee36/O+d+zQzwiQtThZ8/K2QwZBxAzctGtmlhDVP4h7GCF1k3okIqwh7LzDmBL+Iv1NxDsRyqVKvIrtH/b2PVD6lkhNjimxaMw+A8HvgPrXJ+jhcLox+KSX/VEPC84UQA0hhK5NfkpIZAU4O9vow1Bji/auLN822B4KpsBOCB5kDDFrbz14VNqd3LcEx9v8IYC204dBbi85e+ANzLFOAo5XhOGkinkrES9ctNDOICmywsyUIFEuALl/Jw3CfUs13nqSxwRzrGijRaDrGJwobfLziFHPdnZeANC8hM+GO3l70twFmlsL6s4nw/1tlFcvjJ7xRMQKSNKjEHgaGD8Vuz54HyLNVvSX8pnpBZiMfosviYOqqZ/RzI7vO7SPGEEPD797icy8cK2L8EWBpgA5Ek+peAgG6Y/UHAfvMrSn8ew9bynUhAnVbQfgectafYXPkD3KvCeXe3U3yR9bUS4LV1VJZvNkAY1njjWtWFVgLlpRvw3I+LkpGZVIW70Y42Altrj+Fs/N0IJC4Ma2dLWUVBCwGvtorK0u02fIa1q03XrUIDAY7K4nUatLSv8ckncQeqq4/gVIo+6LQmMRMs0+eD2HNWYC//3gZeKAxLbGXU33CFLXKUF3+j1HHkBDTMQPWOkUZLoKz++wA1+2Wgp2GJKdSDV5mjFfk2PLs9zQKdQwxh54EQt1YTdzdgvw1fZZ3SQ5QeToO7lbozM3MYPXxL5FZrYx2WFBGw6cjsNkIbBIqLv6aZSIyPZmHikGPQjrNLUULAyOzA8GffQcz/qYHdMGi2WV+4gtrmYiC8XH6GbN0PQSUEBMpUbp/4aYgnzrYBYk2cQXqb9IQY4BGs7r4LZG1zh/ZAtsxS307k9l+Q2pIotRAI6n3xDGcw/wMg8l+RaCJQksKzJs8hNXpEakuq1EOABrNfzIEpZPee96u7LveEAAND7sCPlDrR7z46ZaSHgG8GssaOIzX8VafYYtXXTsCkNSE7cToWmCSV9BBw1+pYROoM7jqrZMUNIqeFQHroS4JOTwfHT8K0poJiK9ErW4mb0WTHp5EdO0GnmOgHU81+Sa613IE6EBXgefRbWH0EknRnsw9tR+jQ0KyRXvcvAcm5WsYghABbljn0RGe/AOw5fygpnrBBfJ9aoDlQgdTK9MbleXRD4gAktiHvT20tDgwCT5uEEZihZyGnlLyd5PRtgejVxMIWMIJfZO6BKcTyhVmk8DWRuEfzYftTKllrqnWMlSn+NZjpb9hY4f/V0ReD+crSYv1jjlepHVKjLiWvcezBYtQXLf8BGOoetC6LwK8AAAAASUVORK5CYII=&quot;);"></i>
+                            </span>
+                            <span class="text">${(message.data.total_price / 100).toFixed(0)}</span>
+                        </span>
+                    `, "info", "啊哈哈哈哈哈哈，红包来咯", countdown);
                     unpacking = true;
                     updateTabTitle();
                 }
@@ -148,7 +184,7 @@
                     if (Object.keys(json.data).length == 0) {
                         let data = new FormData();
                         data.set("act", "2");
-                        data.set("csrf", JCT);
+                        data.set("csrf", JCT());
                         data.set("re_src", "11");
                         data.set("jsonp", "jsonp");
                         data.set("fid", ROOM_USER_ID);
@@ -161,6 +197,9 @@
                         })
                             .then(res => res.json())
                             .then(json => {
+                                if (json.code == json.message) {
+                                    showMessage("已取消关注", "warning", "提示", false);
+                                }
                                 return r(json.code != json.message);
                             });
                     }
@@ -172,7 +211,7 @@
         unpacking = false;
         notice && (notice.style.display = "none");
         for (let winner of message.data.winner_info) {
-            if (MY_ID == winner[0]) {
+            if (MY_ID() == winner[0]) {
                 // let giftDetail = giftList.get(winner[3]);
                 showMessage(`
                     <div class="gift-frame img gift-${winner[3]}-40" height="40" style="width:40px;height:40px;display:inline-block;"></div>
@@ -199,7 +238,7 @@
                 if (unfollowed) {
                     unfollow();
                 }
-            }, 10000);
+            }, 15000);
         }
     }
 
