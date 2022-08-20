@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.11
+// @version      0.2.12
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -101,11 +101,11 @@
                 if (!execResult) {
                     this.queueInfo[channel].queue.push(task);
                 }
-                task.margin && await sleep(task.margin);
+                await sleep(task.margin);
             } while (this.queueInfo[channel].queue.length > 0);
             this.queueInfo[channel].working = false;
         },
-        triggerInteract: function (channel, method, param, margin) {
+        triggerInteract: function (channel, method, param, margin = 1000) {
             if (this.queueInfo[channel] == undefined) {
                 this.queueInfo[channel] = {
                     working: false,
@@ -222,9 +222,15 @@
                     messageQueue.triggerInteract("likeInteract", likeInteract, medal, 1000);
                     // }
                 }
-                if (medal.isNotWatched() && !watchingList.has(medal.roomId())) {
+                // 防止同时过多挂机任务导致无法获得亲密度，限制最多50个
+                if (
+                    medal.isNotWatched() &&
+                    !watchingList.has(medal.roomId()) &&
+                    (!messageQueue.queueInfo["watchLive"] ||
+                        messageQueue.queueInfo["watchLive"].queue.length + watchingList.size < 50)
+                ) {
                     // 挂机观看
-                    messageQueue.triggerInteract("watchLive", watchLive, medal, 1800);
+                    messageQueue.triggerInteract("watchLive", watchLive, medal, 1000);
                 }
                 // if (medal.isNotShared()) {
                 //     shareList.push(medal);
@@ -408,13 +414,14 @@
                             returnValue = true;
                         case -403:
                             count += 1.6;
-                            if (count > 3) {
-                                returnValue = true;
-                            }
                         default:
                             item.setCheckInCount(++count);
                             item.setCheckInReason(result.code);
                             break;
+                    }
+                    // 防止未处理的情况出现死循环
+                    if (count >= 5) {
+                        returnValue = true;
                     }
                     saveRecords(item);
                     resolve(returnValue);
@@ -553,7 +560,8 @@
     Medal.prototype.isLive = function () { return this.info.room_info.living_status == 1; };  // 0:没播   1:开播  2:录播
     Medal.prototype.isWatched = function () { return this.watched.count >= 15 };
     Medal.prototype.isAttended = function () {
-        if (this.forceStop.timestamp == today) {
+        // 防止没有用户没有直播间的情况死循环
+        if (this.forceStop.timestamp == today || !this.roomId()) {
             return true;
         }
         if (this.wasGuard()) {
