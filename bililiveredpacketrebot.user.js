@@ -8,6 +8,8 @@
 // @grant           GM_addStyle
 // @grant           GM_getValue
 // @grant           GM_setValue
+// @grant           GM_xmlhttpRequest
+// @connect         api.live.bilibili.com
 // @run-at          document-end
 // @noframes
 // @require         https://greasyfork.org/scripts/434638-xfgryujk-s-bliveproxy/code/xfgryujk's%20bliveproxy.js?version=983438
@@ -34,7 +36,7 @@
     const JCT = function () {
         return document.cookie.match(/bili_jct=(\w*); /)[1];
     }
-    const MY_ID = () => { document.cookie.match(/DedeUserID=(\d+);/)[1]; }
+    const MY_ID = () => { return document.cookie.match(/DedeUserID=(\d+);/)[1]; }
 
     window.addEventListener('focus', e => {
         giftCount = 0;
@@ -59,6 +61,15 @@
     formData.set("room_id", ROOM_ID);
     formData.set("ruid", ROOM_USER_ID);
     formData.set("spm_id", "444.8.red_envelope.extract");
+    formData.set("jump_from", "26000");
+    formData.set("build", "6790300");
+    formData.set("c_locale", "en_US");
+    formData.set("channel", "360");
+    formData.set("device", "android");
+    formData.set("mobi_app", "android");
+    formData.set("platform", "android");
+    formData.set("version", "6.79.0");
+    formData.set("statistics", "%7B%22appId%22%3A1%2C%22platform%22%3A3%2C%22version%22%3A%226.79.0%22%2C%22abtest%22%3A%22%22%7D");
 
     bliveproxy.addCommandHandler("POPULARITY_RED_POCKET_START", (message) => {
         setTimeout(() => {
@@ -112,13 +123,18 @@
         formData.set("csrf_token", JCT());
         formData.set("lot_id", message.data.lot_id);
 
-        fetch("https://api.live.bilibili.com/xlive/lottery-interface/v1/popularityRedPocket/RedPocketDraw", {
-            credentials: 'include',
-            method: 'POST',
-            body: formData
-        })
-            .then(res => res.json())
-            .then(json => {
+        GM_xmlhttpRequest({
+            url: `https://api.live.bilibili.com/xlive/lottery-interface/v1/popularityRedPocket/RedPocketDraw`,
+            method: "post",
+            headers: {
+                "User-Agent": "Mozilla/5.0 BiliDroid/6.79.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/6790300 channel/360 innerVer/6790310 osVer/11 network/2"
+            },
+            data: formData,
+            onload: function (res) {
+                if (res.RESPONSE_TYPE_JSON != "json") {
+                    throw new Error("返参错误");
+                }
+                let json = JSON.parse(res.response);
                 if (json.code != 0 || json.data.join_status != 1) {
                     switch (json.code) {
                         case 1009109:
@@ -170,7 +186,8 @@
                     unpacking = true;
                     updateTabTitle();
                 }
-            });
+            }
+        });
     }
 
     async function unfollow() {
