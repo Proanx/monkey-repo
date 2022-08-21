@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.1.18
+// @version         0.1.19
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -132,6 +132,7 @@
             data: formData,
             onload: function (res) {
                 if (res.RESPONSE_TYPE_JSON != "json") {
+                    console.warn(res);
                     throw new Error("返参错误");
                 }
                 let json = JSON.parse(res.response);
