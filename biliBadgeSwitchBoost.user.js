@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.1.3
+// @version      1.1.4
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -11,11 +11,6 @@
 // @require		 https://lib.baomitu.com/vue/2.6.14/vue.js
 // @require      https://greasyfork.org/scripts/439903-blive-room-info-api/code/blive_room_info_api.js?version=1037039
 // ==/UserScript==
-
-/* 
-* todo  加载动画移出动画group
-* todo  自动切换添加退出自动切换
-*/
 
 (function init() {
     'use strict';
@@ -564,6 +559,13 @@
                     indexList.push(item.medal.medal_id);
                 });
                 return indexList;
+            },
+            backUpMedalWallIndex: function () {
+                let indexList = [];
+                this.backUpMedalWall.forEach(item => {
+                    indexList.push(item.medal.medal_id);
+                });
+                return indexList;
             }
         },
         data() {
@@ -700,12 +702,16 @@
                                     } else {
                                         this.medalWall.push(item);
                                     }
+                                    // backUpMedalWall
+                                    index = this.backUpMedalWallIndex.indexOf(item.medal.medal_id);
+                                    if (index >= 0) {
+                                        this.$set(this.backUpMedalWall, index, item);
+                                    } else {
+                                        this.backUpMedalWall.push(item);
+                                    }
                                 });
                                 this.medalWall.sort(this.sort);
-                                // 仅最后一页时保存，否则可能缺少数据
-                                if (json.data.page_info.total_page == page) {
-                                    GM_setValue(`medalWall-${my_id}`, this.medalWall);
-                                }
+                                GM_setValue(`medalWall-${my_id}`, this.backUpMedalWall);
                                 // 保存页面数据
                                 this.pageInfo.loading = false;
                                 this.pageInfo.cPage = +json.data.page_info.current_page;
