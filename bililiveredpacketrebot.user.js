@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.1.20
+// @version         0.1.21
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -42,11 +42,15 @@
         giftCount = 0;
         setTimeout(() => {
             updateTabTitle();
-        }, 3000);
+        }, 1000);
     });
 
     // 通知css    
     GM_addStyle(".noticejs-heading{user-select:none}.noticejs-content>span{line-height:20px;font-size:14px}.noticejs-content .currency-icon{margin:-6px -4px 0 0;width:14px;height:14px;display:inline-block;vertical-align:middle;background-size:cover;background-position:center center}.noticejs-content .img{margin-left:15px;width:40px;opacity:1;float:right}.noticejs-content .coin-type{margin-left:-5px}.noticejs-link{margin-right:15px}.noticejs-top{top:0;width:100%!important}.noticejs-top .item{border-radius:0!important;margin:0!important}.noticejs-topRight{top:10px;right:10px}.noticejs-topLeft{top:10px;left:10px}.noticejs-topCenter{top:10px;left:50%;transform:translate(-50%)}.noticejs-middleLeft,.noticejs-middleRight{right:10px;top:50%;transform:translateY(-50%)}.noticejs-middleLeft{left:10px}.noticejs-middleCenter{top:50%;left:50%;transform:translate(-50%,-50%)}.noticejs-bottom{bottom:0;width:100%!important}.noticejs-bottom .item{border-radius:0!important;margin:0!important}.noticejs-bottomRight{bottom:10px;right:10px}.noticejs-bottomLeft{bottom:10px;left:10px}.noticejs-bottomCenter{bottom:10px;left:50%;transform:translate(-50%)}.noticejs{font-size:14px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif}.noticejs .item{width:fit-content;margin:0 0 10px;border-radius:5px;overflow:hidden}.noticejs .item .close{cursor:pointer;width:21px;height:21px;text-align:center;margin-top:-3px;margin-right:-3px;float:right;font-size:18px;font-weight:700;line-height:1;color:#fff;text-shadow:0 1px 0 #fff;opacity:1}.noticejs .item .close:hover{opacity:.5;color:#000}.noticejs .item a{color:#fff;border-bottom:1px dashed #fff}.noticejs .item a,.noticejs .item a:hover{text-decoration:none}.noticejs .success{background-color:#64ce83b3}.noticejs .success .noticejs-heading{background-color:#3da95cb3;color:#fff;padding:5px}.noticejs .success .noticejs-body{color:#fff;padding:5px 10px}.noticejs .success .noticejs-body:hover{visibility:visible!important}.noticejs .success .noticejs-content{visibility:visible;word-break:break-all;min-width:135px}.noticejs .info{background-color:#3ea2ffb3}.noticejs .info .noticejs-heading{background-color:#067ceab3;color:#fff;padding:5px}.noticejs .info .noticejs-body{color:#fff;padding:5px 10px}.noticejs .info .noticejs-body:hover{visibility:visible!important}.noticejs .info .noticejs-content{visibility:visible;word-break:break-all}.noticejs .warning{background-color:#ff7f48b3}.noticejs .warning .noticejs-heading{background-color:#f44e06b3;color:#fff;padding:5px}.noticejs .warning .noticejs-body{color:#fff;padding:5px 10px}.noticejs .warning .noticejs-body:hover{visibility:visible!important}.noticejs .warning .noticejs-content{visibility:visible;word-break:break-all}.noticejs .error{background-color:#e74c3cb3}.noticejs .error .noticejs-heading{background-color:#ba2c1db3;color:#fff;padding:5px}.noticejs .error .noticejs-body{color:#fff;padding:5px 10px}.noticejs .error .noticejs-body:hover{visibility:visible!important}.noticejs .error .noticejs-content{visibility:visible;word-break:break-all}.noticejs .progressbar{width:100%}.noticejs .progressbar .bar{width:1%;height:30px;background-color:#4caf50b3}.noticejs .success .noticejs-progressbar{width:100%;background-color:#64ce83b3;margin-top:-1px}.noticejs .success .noticejs-progressbar .noticejs-bar{width:100%;height:5px;background:#3da95cb3}.noticejs .info .noticejs-progressbar{width:100%;background-color:#3ea2ffb3;margin-top:-1px}.noticejs .info .noticejs-progressbar .noticejs-bar{width:100%;height:5px;background:#067ceab3}.noticejs .warning .noticejs-progressbar{width:100%;background-color:#ff7f48b3;margin-top:-1px}.noticejs .warning .noticejs-progressbar .noticejs-bar{width:100%;height:5px;background:#f44e06b3}.noticejs .error .noticejs-progressbar{width:100%;background-color:#e74c3cb3;margin-top:-1px}.noticejs .error .noticejs-progressbar .noticejs-bar{width:100%;height:5px;background:#ba2c1db3}@keyframes noticejs-fadeOut{0%{opacity:1}to{opacity:0}}.noticejs-fadeOut{animation-name:noticejs-fadeOut}@keyframes noticejs-modal-in{to{opacity:.3}}@keyframes noticejs-modal-out{to{opacity:0}}.noticejs-rtl .noticejs-heading{direction:rtl}.noticejs-rtl .close{float:left!important;margin-left:7px;margin-right:0!important}.noticejs-rtl .noticejs-content{direction:rtl}.noticejs{position:fixed;z-index:10050}.noticejs ::-webkit-scrollbar{width:8px}.noticejs ::-webkit-scrollbar-button{width:8px;height:5px}.noticejs ::-webkit-scrollbar-track{border-radius:10px}.noticejs ::-webkit-scrollbar-thumb{background:hsla(0,0%,100%,.5);border-radius:10px}.noticejs ::-webkit-scrollbar-thumb:hover{background:#fff}.noticejs-modal{position:fixed;width:100%;height:100%;background-color:#000;z-index:10000;opacity:.3;left:0;top:0}.noticejs-modal-open{opacity:0;animation:noticejs-modal-in .3s ease-out}.noticejs-modal-close{animation:noticejs-modal-out .3s ease-out;animation-fill-mode:forwards}");
+    // 新版红包CSS
+    GM_addStyle(".join .join-main .join-envelope-sponsor .sponsor-award .award-item{width:70px!important;height:70px!important}.join .join-main .join-envelope-sponsor .sponsor-award .award-item .award-item-bg{justify-content:center!important}.join .join-main .join-envelope-sponsor .sponsor-award .award-item .award-item-num{margin-top:0!important;position:relative;top:-3px}.join .join-main .join-envelope-sponsor .sponsor-award .award-item .award-item-img{width:50px!important;height:50px!important}");
+    // 领取按钮
+    GM_addStyle(".draw-red-packet-btn{position:absolute;width:44px;height:18px;margin-top:8px;color:#f9dc8b;background:#ed5959;border-radius:4px;text-align:center;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;display:flex;justify-content:center;margin-left:15px;align-items:center;top:87px}");
 
     var notice;
     var timeout;
@@ -72,9 +76,9 @@
     formData.set("statistics", "%7B%22appId%22%3A1%2C%22platform%22%3A3%2C%22version%22%3A%226.79.0%22%2C%22abtest%22%3A%22%22%7D");
 
     bliveproxy.addCommandHandler("POPULARITY_RED_POCKET_START", (message) => {
-        setTimeout(() => {
-            drawRedPacket(message);
-        }, Math.random() * 3000);
+        // setTimeout(() => {
+        drawRedPacket(message);
+        // }, Math.random() * 3000);
     });
     bliveproxy.addCommandHandler("POPULARITY_RED_POCKET_WINNER_LIST", redPacketWinner);
 
@@ -95,25 +99,72 @@
                     let message = {
                         data: json.data.popularity_red_pocket[0]
                     };
-                    setTimeout(() => {
-                        drawRedPacket(message, retry);
-                    }, Math.random() * 3000);
+                    // setTimeout(() => {
+                    drawRedPacket(message, false, retry);
+                    // }, Math.random() * 3000);
                 }
             });
     }
 
-    function drawRedPacket(message, retry) {
-        if (GM_getValue(`limitWarning-${MY_ID()}`) == new Date().toLocaleDateString('zh')) {
+    function addDrawBtn(message, retry = 0) {
+        if (message.data.end_time * 1000 <= Date.now()) {
+            return;     // 防止给已开奖的红包添加按钮
+        }
+        let btn = document.querySelector(".draw-red-packet-btn");
+        btn && btn.remove();
+        let redEnvelope = document.querySelector(".popularity-red-envelope-entry.gift-left-part");
+        if (!redEnvelope) {
+            if (retry <= 5) {
+                setTimeout(() => {
+                    addDrawBtn(message, retry + 1);
+                }, 1000);
+            }
             return;
         }
+        let dom = document.createElement("div");
+        dom.className = "draw-red-packet-btn";
+        dom.innerHTML = "<span>抽红包</span>";
+        dom.style.left = redEnvelope.offsetLeft + "px";
+        dom.onclick = function () {
+            drawRedPacket(message, true);
+        }
+        redEnvelope.after(dom);
+    }
 
-        let gold = Math.round(message.data.total_price / 100);
-        if (doorSill > gold || goldBlockEnumList.includes(gold)) {
-            return;
+    function removeDrawBtn() {
+        let drawBtn = document.querySelector(".draw-red-packet-btn");
+        drawBtn && drawBtn.remove();
+    }
+
+    function drawRedPacket(message, force, retry) {
+        if (!force) {
+            // 每日上限
+            if (GM_getValue(`limitWarning-${MY_ID()}`) == new Date().toLocaleDateString('zh')) {
+                addDrawBtn(message);
+                return;
+            }
+            // 电池门槛
+            let gold = Math.round(message.data.total_price / 100);
+            if (doorSill > gold || goldBlockEnumList.includes(gold)) {
+                addDrawBtn(message);
+                return;
+            }
         }
 
         clearTimeout(timeout);
         timeout = null;
+        // 防止收不到开奖信息页面状态卡住
+        let countdown = message.data.end_time * 1000 - Date.now() + 1000;
+        setTimeout(() => {
+            if (unpacking) {
+                let obj = {
+                    "data": {
+                        "winner_info": []
+                    }
+                };
+                redPacketWinner(obj);
+            }
+        }, countdown);
 
         // if (giftList.size == 0) {
         //     initGiftList();
@@ -141,11 +192,12 @@
                 if (json.code != 0 || json.data.join_status != 1) {
                     switch (json.code) {
                         case 1009109:
+                            removeDrawBtn();
                             showMessage(json.message, "warning", null, false);
                             GM_setValue(`limitWarning-${MY_ID()}`, new Date().toLocaleDateString('zh'));
                             return;
                         case 1009114:       // 已抽奖
-                            let countdown = message.data.end_time * 1000 - Date.now();
+                            removeDrawBtn();
                             notice = showMessage(`
                                 坐等 ${message.data.sender_name} 的红包开奖
                                 <br>
@@ -162,6 +214,9 @@
                             unpacking = true;
                             updateTabTitle();
                             return;
+                        case 1009108:       // 抽奖已结束
+                            removeDrawBtn();
+                            break;
                         case 1009106:       // 提示参数错误，尝试重试
                             if (!retry) {
                                 getLottery(true);
@@ -172,7 +227,7 @@
                     }
                     showMessage(json.message, "error", "抢红包失败", false);
                 } else {
-                    let countdown = message.data.end_time * 1000 - Date.now();
+                    removeDrawBtn();
                     notice = showMessage(`
                         坐等 ${message.data.sender_name} 的红包开奖
                         <br>
@@ -228,6 +283,8 @@
     }
 
     function redPacketWinner(message) {
+        removeDrawBtn();
+        let follow = unpacking;
         unpacking = false;
         notice && (notice.style.display = "none");
         for (let winner of message.data.winner_info) {
@@ -252,7 +309,7 @@
             }
         }
         updateTabTitle();
-        if (!FOLLOWED) {
+        if ((!FOLLOWED) && follow) {
             timeout = setTimeout(async () => {
                 let unfollowed = await unfollow();
                 if (unfollowed) {
