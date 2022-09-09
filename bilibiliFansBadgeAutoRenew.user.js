@@ -28,6 +28,9 @@
         return;
     }
 
+    let my_id = document.cookie.match(/DedeUserID=(\d*); /)[1];
+    let today = new Date().toLocaleDateString();
+
     switch (location.hostname) {
         case "t.bilibili.com":
             break;
@@ -59,8 +62,6 @@
     };
     // ---------------------------------------------------------------------
 
-    let my_id = document.cookie.match(/DedeUserID=(\d*); /)[1];
-    let today = new Date().toLocaleDateString();
     let watchingList = new Set();
     let loopTimes = 0;
     // let medalMap = new Map();
@@ -151,7 +152,7 @@
         do {
             console.log(`自动续牌-开始打卡，正在加载第 ${pageNum} 页`);
             result = await getMedalDetail(pageNum++);
-            finished = checker(result.list);
+            finished = checker(result.list, result.list.length >= 200);
             // 睡一会防止消费未开始直接翻页
             await sleep(1000);
             // 等这一页的打卡任务都完成后再进行翻页
@@ -197,7 +198,7 @@
     }
 
     // 遍历查看是否已经打卡完成
-    function checker(medalDetail) {
+    function checker(medalDetail, sync) {
         let shareList = [];
         let finished = 0;
         for (let medal of medalDetail) {
@@ -213,13 +214,13 @@
             }
             if (medal.isNotCheckedIn()) {
                 // 弹幕打卡
-                messageQueue.triggerInteract("sendDanmu", sendMsg, medal, 1000);
+                messageQueue.triggerInteract("sendDanmu", sendMsg, medal, sync ? 5000 : 1000);
             }
             if (medal.intimacyEarnable()) {
                 if (medal.isNotLiked()) {
                     // 点赞打卡
                     // for (let i = 0; i < 3; i++) {
-                    messageQueue.triggerInteract("likeInteract", likeInteract, medal, 1000);
+                    messageQueue.triggerInteract("likeInteract", likeInteract, medal, sync ? 6000 : 1200);
                     // }
                 }
                 // 防止同时过多挂机任务导致无法获得亲密度，限制最多50个
