@@ -7,7 +7,7 @@
 // @author       Pronax
 // @run-at       document-body
 // @include      /https://live.bilibili.com\/\d+/
-// @require      https://cdn.staticfile.org/jquery/1.12.4/jquery.min.js
+// @require      https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/jquery/1.12.4/jquery.min.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        unsafeWindow

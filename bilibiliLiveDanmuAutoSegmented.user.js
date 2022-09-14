@@ -8,7 +8,7 @@
 // @icon         http://bilibili.com/favicon.ico
 // @grant        GM_addStyle
 // @run-at		 document-end
-// @require      https://cdn.staticfile.org/jquery/1.12.4/jquery.min.js
+// @require      https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/jquery/1.12.4/jquery.min.js
 // @require      https://greasyfork.org/scripts/439903-blive-room-info-api/code/blive_room_info_api.js?version=1037039
 // ==/UserScript==
 

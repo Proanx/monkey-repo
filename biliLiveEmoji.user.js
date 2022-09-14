@@ -9,7 +9,7 @@
 // @run-at       document-idle
 // @grant        GM_addStyle
 // @noframes
-// @require      https://cdn.jsdelivr.net/npm/jquery@1.11.1/dist/jquery.min.js
+// @require      https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/jquery/1.12.4/jquery.min.js
 // @require      https://greasyfork.org/scripts/439903-blive-room-info-api/code/blive_room_info_api.js?version=1037039
 // ==/UserScript==
 

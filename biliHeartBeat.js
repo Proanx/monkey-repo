@@ -5,7 +5,7 @@
 // @author      lzghzr
 // @description 在0.0.5的基础上修改了一下用于挂机经验
 // @include     /^https?:\/\/live\.bilibili\.com\/(?:blanc\/)?\d/
-// @require     https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.js
+// @require     https://lf3-cdn-tos.bytecdntp.com/cdn/expire-1-M/crypto-js/4.1.1/crypto-js.min.js
 // @license     MIT
 // @grant       none
 // @run-at      document-end

@@ -7,7 +7,7 @@
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
 // @include      /:\/\/t.bilibili.com/
 // @icon         http://bilibili.com/favicon.ico
-// @require      https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.js
+// @require      https://lf3-cdn-tos.bytecdntp.com/cdn/expire-1-M/crypto-js/4.1.1/crypto-js.min.js
 // @require      https://greasyfork.org/scripts/447940-biliveheartwithtimeparam/code/BiliveHeartWithTimeParam.js?version=1071313
 // @grant        GM_setValue
 // @grant        GM_getValue

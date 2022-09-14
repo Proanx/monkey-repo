@@ -11,7 +11,7 @@
 // @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
 // @noframes
-// @require		 https://lib.baomitu.com/vue/2.6.14/vue.min.js
+// @require      https://lf3-cdn-tos.bytecdntp.com/cdn/expire-1-M/vue/2.6.14/vue.min.js
 // ==/UserScript==
 
 (function () {
