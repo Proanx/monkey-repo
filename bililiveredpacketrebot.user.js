@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.1.21
+// @version         0.2.0
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -50,7 +50,7 @@
     // 新版红包CSS
     GM_addStyle(".join .join-main .join-envelope-sponsor .sponsor-award .award-item{width:70px!important;height:70px!important}.join .join-main .join-envelope-sponsor .sponsor-award .award-item .award-item-bg{justify-content:center!important}.join .join-main .join-envelope-sponsor .sponsor-award .award-item .award-item-num{margin-top:0!important;position:relative;top:-3px}.join .join-main .join-envelope-sponsor .sponsor-award .award-item .award-item-img{width:50px!important;height:50px!important}");
     // 领取按钮
-    GM_addStyle(".draw-red-packet-btn{position:absolute;width:44px;height:18px;margin-top:8px;color:#f9dc8b;background:#ed5959;border-radius:4px;text-align:center;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;display:flex;justify-content:center;margin-left:15px;align-items:center;top:87px}");
+    GM_addStyle(".draw-red-packet-btn{position:absolute;width:44px;height:18px;margin-top:8px;color:#f9dc8b;background:#ed5959;border-radius:4px;text-align:center;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;display:flex;justify-content:center;align-items:center;top:87px}");
 
     var notice;
     var timeout;
@@ -97,7 +97,7 @@
             .then(json => {
                 if (json.data.popularity_red_pocket && json.data.popularity_red_pocket[0].user_status == 2) {
                     let message = {
-                        data: json.data.popularity_red_pocket[0]
+                        "data": json.data.popularity_red_pocket[0]
                     };
                     // setTimeout(() => {
                     drawRedPacket(message, false, retry);
@@ -107,7 +107,7 @@
     }
 
     function addDrawBtn(message, retry = 0) {
-        if (message.data.end_time * 1000 <= Date.now()) {
+        if (message.data.end_time <= message.data.current_time) {
             return;     // 防止给已开奖的红包添加按钮
         }
         let btn = document.querySelector(".draw-red-packet-btn");
@@ -124,11 +124,11 @@
         let dom = document.createElement("div");
         dom.className = "draw-red-packet-btn";
         dom.innerHTML = "<span>抽红包</span>";
-        dom.style.left = redEnvelope.offsetLeft + "px";
-        dom.onclick = function () {
+        dom.onclick = function (e) {
+            e.stopPropagation();
             drawRedPacket(message, true);
         }
-        redEnvelope.after(dom);
+        redEnvelope.append(dom);
     }
 
     function removeDrawBtn() {
@@ -140,7 +140,6 @@
         if (!force) {
             // 每日上限
             if (GM_getValue(`limitWarning-${MY_ID()}`) == new Date().toLocaleDateString('zh')) {
-                addDrawBtn(message);
                 return;
             }
             // 电池门槛
@@ -154,7 +153,7 @@
         clearTimeout(timeout);
         timeout = null;
         // 防止收不到开奖信息页面状态卡住
-        let countdown = message.data.end_time * 1000 - Date.now() + 1000;
+        let countdown = (message.data.end_time - message.data.current_time) * 1000;
         setTimeout(() => {
             if (unpacking) {
                 let obj = {
@@ -164,7 +163,7 @@
                 };
                 redPacketWinner(obj);
             }
-        }, countdown);
+        }, countdown + 5000);
 
         // if (giftList.size == 0) {
         //     initGiftList();
