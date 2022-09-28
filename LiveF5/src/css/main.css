@@ -1,0 +1,4 @@
+/* 插件加载完毕前隐藏默认的直播栏 */
+section.sticky>.bili-dyn-live-users:not(.boost) {
+    display: none;
+}

@@ -1,0 +1,22 @@
+{
+  "name": "livef5",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "pac": "webpack"
+  },
+  "keywords": [],
+  "author": "Pronax",
+  "license": "ISC",
+  "devDependencies": {
+    "css-loader": "^6.7.1",
+    "style-loader": "^3.3.1",
+    "svelte": "^3.50.1",
+    "svelte-loader": "^3.1.3",
+    "webpack-cli": "^4.10.0"
+  },
+  "dependencies": {
+    "webpack": "^5.74.0"
+  }
+}
