@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.2.0
+// @version         0.2.2
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -33,10 +33,26 @@
     const ROOM_ID = await ROOM_INFO_API.getRid();
     const ROOM_USER_ID = await ROOM_INFO_API.getUid();
     const FOLLOWED = await getFollowStatus(ROOM_USER_ID);
-    const JCT = function () {
-        return document.cookie.match(/bili_jct=(\w*); /)[1];
+    const Setting = {
+        get UID() {
+            return document.cookie.match(/DedeUserID=(\d*); /)[1]
+        },
+        get TOKEN() {
+            let regex = document.cookie.match(/bili_jct=(\w*); /);
+            return regex && regex[1];
+        },
+        get Beijing_date() {    // eg. 2022/10/15
+            return new Date(this.beijing_ts).toLocaleDateString("zh-CN");
+        },
+        get Beijing_ts() {
+            let local = new Date();
+            let diff = (local.getTimezoneOffset() - this.beijing_timezoneOffset) * 60 * 1000;
+            return local.valueOf() + diff;
+        },
+        get Beijing_timezoneOffset() {
+            return -480;
+        }
     }
-    const MY_ID = () => { return document.cookie.match(/DedeUserID=(\d+);/)[1]; }
 
     window.addEventListener('focus', e => {
         giftCount = 0;
@@ -50,7 +66,7 @@
     // 新版红包CSS
     GM_addStyle(".join .join-main .join-envelope-sponsor .sponsor-award .award-item{width:70px!important;height:70px!important}.join .join-main .join-envelope-sponsor .sponsor-award .award-item .award-item-bg{justify-content:center!important}.join .join-main .join-envelope-sponsor .sponsor-award .award-item .award-item-num{margin-top:0!important;position:relative;top:-3px}.join .join-main .join-envelope-sponsor .sponsor-award .award-item .award-item-img{width:50px!important;height:50px!important}");
     // 领取按钮
-    GM_addStyle(".draw-red-packet-btn{position:absolute;width:44px;height:18px;margin-top:8px;color:#f9dc8b;background:#ed5959;border-radius:4px;text-align:center;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;display:flex;justify-content:center;align-items:center;top:87px}");
+    GM_addStyle(".draw-red-packet-btn{position:absolute;width:44px;height:18px;margin-top:8px;color:#f9dc8b;background:#ed5959;border-radius:4px;text-align:center;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;display:flex;justify-content:center;align-items:center;top:87px}.draw-red-packet-btn.disabled{color: #fff;background:#aaa;}");
 
     var notice;
     var timeout;
@@ -75,10 +91,18 @@
     formData.set("version", "6.79.0");
     formData.set("statistics", "%7B%22appId%22%3A1%2C%22platform%22%3A3%2C%22version%22%3A%226.79.0%22%2C%22abtest%22%3A%22%22%7D");
 
-    bliveproxy.addCommandHandler("POPULARITY_RED_POCKET_START", (message) => {
-        // setTimeout(() => {
-        drawRedPacket(message);
-        // }, Math.random() * 3000);
+    bliveproxy.addCommandHandler("POPULARITY_RED_POCKET_START", async (message) => {
+        let failed = await drawRedPacket(message);
+        // 参数错误时重试
+        if (failed) {
+            setTimeout(async () => {
+                message.data.current_time = message.data.current_time - 1000;
+                failed = await drawRedPacket(message);
+                if (failed) {
+                    addDrawBtn(message);
+                }
+            }, 1000);
+        }
     });
     bliveproxy.addCommandHandler("POPULARITY_RED_POCKET_WINNER_LIST", redPacketWinner);
 
@@ -91,17 +115,24 @@
 
     getLottery();
 
-    function getLottery(retry) {
+    function getLottery() {
         fetch(`https://api.live.bilibili.com/xlive/lottery-interface/v1/lottery/getLotteryInfoWeb?roomid=${ROOM_ID}`)
             .then(res => res.json())
-            .then(json => {
+            .then(async json => {
                 if (json.data.popularity_red_pocket && json.data.popularity_red_pocket[0].user_status == 2) {
                     let message = {
                         "data": json.data.popularity_red_pocket[0]
                     };
-                    // setTimeout(() => {
-                    drawRedPacket(message, false, retry);
-                    // }, Math.random() * 3000);
+                    let failed = await drawRedPacket(message);
+                    if (failed) {
+                        setTimeout(async () => {
+                            message.data.current_time = message.data.current_time - 1000;
+                            failed = await drawRedPacket(message);
+                            if (failed) {
+                                addDrawBtn(message);
+                            }
+                        }, 1000);
+                    }
                 }
             });
     }
@@ -122,8 +153,13 @@
             return;
         }
         let dom = document.createElement("div");
-        dom.className = "draw-red-packet-btn";
-        dom.innerHTML = "<span>抽红包</span>";
+        if (GM_getValue(`limitWarning-${Setting.UID}`) == Setting.Beijing_date) {
+            dom.className = "draw-red-packet-btn disabled";
+            dom.innerHTML = "<span>上限</span>";
+        } else {
+            dom.className = "draw-red-packet-btn";
+            dom.innerHTML = "<span>抽红包</span>";
+        }
         dom.onclick = function (e) {
             e.stopPropagation();
             drawRedPacket(message, true);
@@ -136,10 +172,11 @@
         drawBtn && drawBtn.remove();
     }
 
-    function drawRedPacket(message, force, retry) {
+    function drawRedPacket(message, force) {
         if (!force) {
             // 每日上限
-            if (GM_getValue(`limitWarning-${MY_ID()}`) == new Date().toLocaleDateString('zh')) {
+            if (GM_getValue(`limitWarning-${Setting.UID}`) == Setting.Beijing_date) {
+                addDrawBtn(message);
                 return;
             }
             // 电池门槛
@@ -169,35 +206,39 @@
         //     initGiftList();
         // }
 
-        formData.set("csrf", JCT());
-        formData.set("csrf_token", JCT());
+        formData.set("csrf", Setting.TOKEN);
+        formData.set("csrf_token", formData.get("csrf"));
         formData.set("lot_id", message.data.lot_id);
 
-        GM_xmlhttpRequest({
-            url: `https://api.live.bilibili.com/xlive/lottery-interface/v1/popularityRedPocket/RedPocketDraw`,
-            method: "post",
-            headers: {
-                "User-Agent": "Mozilla/5.0 BiliDroid/6.79.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/6790300 channel/360 innerVer/6790310 osVer/11 network/2"
-            },
-            data: formData,
-            onload: function (res) {
-                let json = undefined;
-                try {
-                    json = JSON.parse(res.response);
-                } catch (error) {
-                    console.warn(res);
-                    throw new Error("返参错误");
-                }
-                if (json.code != 0 || json.data.join_status != 1) {
-                    switch (json.code) {
-                        case 1009109:
-                            removeDrawBtn();
-                            showMessage(json.message, "warning", null, false);
-                            GM_setValue(`limitWarning-${MY_ID()}`, new Date().toLocaleDateString('zh'));
-                            return;
-                        case 1009114:       // 已抽奖
-                            removeDrawBtn();
-                            notice = showMessage(`
+        return new Promise(resolve => {
+            GM_xmlhttpRequest({
+                url: `https://api.live.bilibili.com/xlive/lottery-interface/v1/popularityRedPocket/RedPocketDraw`,
+                method: "post",
+                headers: {
+                    "User-Agent": "Mozilla/5.0 BiliDroid/6.79.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/6790300 channel/360 innerVer/6790310 osVer/11 network/2"
+                },
+                data: formData,
+                onload: function (res) {
+                    let json = undefined;
+                    try {
+                        json = JSON.parse(res.response);
+                    } catch (error) {
+                        resolve(false);
+                        console.warn(res);
+                        throw new Error("返参错误");
+                    }
+                    if (json.code != 0 || json.data.join_status != 1) {
+                        switch (json.code) {
+                            case 1009109:       // 每日上限
+                                removeDrawBtn();
+                                showMessage(json.message, "warning", null, false);
+                                GM_setValue(`limitWarning-${Setting.UID}`, Setting.Beijing_date);
+                                resolve(false);
+                                addDrawBtn(message);
+                                return;
+                            case 1009114:       // 已抽奖
+                                removeDrawBtn();
+                                notice = showMessage(`
                                 坐等 ${message.data.sender_name} 的红包开奖
                                 <br>
                                 红包ID：${message.data.lot_id}
@@ -210,24 +251,23 @@
                                     <span class="text">${(message.data.total_price / 100).toFixed(0)}</span>
                                 </span>
                             `, "info", "啊哈哈哈哈哈哈，红包来咯", countdown);
-                            unpacking = true;
-                            updateTabTitle();
-                            return;
-                        case 1009108:       // 抽奖已结束
-                            removeDrawBtn();
-                            break;
-                        case 1009106:       // 提示参数错误，尝试重试
-                            if (!retry) {
-                                getLottery(true);
+                                unpacking = true;
+                                updateTabTitle();
+                                resolve(false);
                                 return;
-                            }
-                            break;
-                        default:
-                    }
-                    showMessage(json.message, "error", "抢红包失败", false);
-                } else {
-                    removeDrawBtn();
-                    notice = showMessage(`
+                            case 1009108:       // 抽奖已结束
+                                removeDrawBtn();
+                                break;
+                            case 1009106:       // 参数错误 ？？？
+                                resolve(true);
+                                return;
+                            default:
+                        }
+                        resolve(false);
+                        showMessage(json.message, "error", "抢红包失败", false);
+                    } else {
+                        removeDrawBtn();
+                        notice = showMessage(`
                         坐等 ${message.data.sender_name} 的红包开奖
                         <br>
                         红包ID：${message.data.lot_id}
@@ -240,11 +280,14 @@
                             <span class="text">${(message.data.total_price / 100).toFixed(0)}</span>
                         </span>
                     `, "info", "啊哈哈哈哈哈哈，红包来咯", countdown);
-                    unpacking = true;
-                    updateTabTitle();
+                        unpacking = true;
+                        updateTabTitle();
+                        resolve(false);
+                    }
                 }
-            }
+            });
         });
+
     }
 
     async function unfollow() {
@@ -258,7 +301,7 @@
                     if (Object.keys(json.data).length == 0) {
                         let data = new FormData();
                         data.set("act", "2");
-                        data.set("csrf", JCT());
+                        data.set("csrf", Setting.TOKEN);
                         data.set("re_src", "11");
                         data.set("jsonp", "jsonp");
                         data.set("fid", ROOM_USER_ID);
@@ -287,7 +330,7 @@
         unpacking = false;
         notice && (notice.style.display = "none");
         for (let winner of message.data.winner_info) {
-            if (MY_ID() == winner[0]) {
+            if (Setting.UID == winner[0]) {
                 // let giftDetail = giftList.get(winner[3]);
                 showMessage(`
                     <div class="gift-frame img gift-${winner[3]}-40" height="40" style="width:40px;height:40px;display:inline-block;"></div>
