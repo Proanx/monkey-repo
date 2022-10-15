@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.12
+// @version      0.2.13
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
 // @include      /:\/\/t.bilibili.com/
+// @exclude      /:\/\/t.bilibili.com\/\d+/
 // @icon         http://bilibili.com/favicon.ico
 // @require      https://lf3-cdn-tos.bytecdntp.com/cdn/expire-1-M/crypto-js/4.1.1/crypto-js.min.js
 // @require      https://greasyfork.org/scripts/447940-biliveheartwithtimeparam/code/BiliveHeartWithTimeParam.js?version=1071313
@@ -14,22 +15,70 @@
 // @run-at       document-idle
 // ==/UserScript==
 
-/* 
-* todo  避免多页面并发
-*/
-
 (async function () {
     'use strict';
 
-    const SHUTUP = false;  // 测试用的，为true时会拦截打卡的网络请求
+    // 自定义参数部分 -------------------------------------------
 
-    if (!jct()) {
+    // 打卡模式可选：
+    // ps: 舰长只有掉舰并且7天没有互动后牌子灰了才需要打卡
+    //  默认 -> 未开播时发送一次弹幕、点赞一次、挂观看直到1500亲密度满
+    //  无痕 -> 不发送弹幕、点赞一次、挂观看直到1500亲密度满（副作用：7天内没有任何互动的直播间牌子会变灰）
+    //  常亮 -> 牌子灰了时发送弹幕续牌，其余时间同 无痕 的行为模式相同
+    //  低保 -> 牌子灰了时发送弹幕续牌，其余时间不做任何事（副作用：每日首次发送弹幕会有100亲密度）
+    const 打卡模式 = "默认";
+
+    // uid白名单   与黑名单同时配置时黑名单优先
+    let whiteList = [
+        // 只有在名单内的人才会打卡
+        // 格式: uid,
+        // 举例: 672328094,
+    ];
+    // uid黑名单   与白名单同时配置时黑名单优先
+    let blackList = [
+        // 在名单内的人不会打卡
+        // 格式: uid,
+        // 举例: 672328094,
+    ];
+    // 自定义打卡文字
+    let customDanmu = {
+        // 配置了此项的直播间会忽略打卡模式设定，至少发送一次弹幕
+        // ps：支持表情弹幕，弹幕内容填入对应emoticon_unique即可
+        // 格式: uid:"弹幕内容",
+        // 举例: 437744340: "王哥我爱你王哥",
+    };
+
+    // 自定义参数end -------------------------------------------
+
+    const Setting = {
+        get UID() {
+            return document.cookie.match(/DedeUserID=(\d*); /)[1]
+        },
+        get TOKEN() {
+            let regex = document.cookie.match(/bili_jct=(\w*); /);
+            return regex && regex[1];
+        },
+        get Beijing_date() {    // eg. 2022/10/15
+            return new Date(this.Beijing_ts).toLocaleDateString("zh-CN");
+        },
+        get Beijing_ts() {
+            let local = new Date();
+            let diff = (local.getTimezoneOffset() - this.Beijing_timezoneOffset) * 60 * 1000;
+            return local.valueOf() + diff;
+        },
+        get Beijing_timezoneOffset() {
+            return -480;
+        }
+    }
+
+    if (!Setting.TOKEN) {
         console.log("自动续牌-未登录账号");
         return;
     }
 
-    let my_id = document.cookie.match(/DedeUserID=(\d*); /)[1];
-    let today = new Date().toLocaleDateString();
+    const 拦截请求 = false;     // 测试用的，为true时会拦截打卡的网络请求
+
+    let today = Setting.Beijing_date;
 
     switch (location.hostname) {
         case "t.bilibili.com":
@@ -44,45 +93,10 @@
             return;
     }
 
-    // 因为找到真实房间号有一些门槛，所以改用UID ---------------------------------
-    let whiteList = [   // 白名单   与黑名单同时配置时黑名单优先
-        // 只有在名单内的人才会打卡
-        // e.g. 672328094,
-    ];
-    let blackList = [   // 黑名单   与黑名单同时配置时黑名单优先
-        // 在名单内的人不会打卡
-        // e.g. 672328094,
-        1746543883,
-        15937202,
-    ];
-    let customDanmu = { // 自定义打卡文字
-        437744340: "王哥我爱你王哥",
-        350024041: "打卡",
-        1833021: "打坐催播",
-    };
-    // ---------------------------------------------------------------------
-
     let watchingList = new Set();
-    let loopTimes = 0;
-    // let medalMap = new Map();
     let messageQueue = {   // timeout消费队列
         queueInfo: {
         },
-        // lastone: Date.now(),
-        // getTimeout: (lastTimeStamp, margin = 3000) => {
-        //     let now = Date.now();
-        //     if (messageQueue[lastTimeStamp] < now || messageQueue[lastTimeStamp] == undefined) {
-        //         messageQueue[lastTimeStamp] = now + margin;
-        //     } else {
-        //         let diff = messageQueue[lastTimeStamp] - now;
-        //         messageQueue[lastTimeStamp] += margin;
-        //         margin += diff;
-        //     }
-        //     if (messageQueue[lastTimeStamp] > messageQueue.lastone) {
-        //         messageQueue.lastone = messageQueue[lastTimeStamp];
-        //     }
-        //     return margin;
-        // },
         hangingUp: async function (channel) {
             if (this.queueInfo[channel] == undefined) { return true; }
             while (this.queueInfo[channel].working) {
@@ -120,15 +134,8 @@
             });
             this.consumer(channel);
         },
-        // sendDanmu: (medal, margin = 5000) => {
-        //     let timeout = messageQueue.getTimeout("lastDanmuTimeStamp", margin);
-        //     console.log(`自动续牌-预计 ${Math.round(timeout / 1000)} 秒后给 ${medal.userName()} 发送弹幕`);
-        //     setTimeout(() => {
-        //         sendMsg(medal);
-        //     }, timeout);
-        // }
     };
-    let emojiList = ["打卡(｡･ω･｡)", "打卡⊙ω⊙", "打卡( ˘•ω•˘ )", "打卡(〃∀〃)", "打卡(´･_･`)", "打卡ᶘ ᵒᴥᵒᶅ", "打卡(づ◡ど)", "打卡(=^･ｪ･^=)", "打卡｜д•´)!!", "打卡 ( ´･ᴗ･` ) ", "打卡ヾ(●´∇｀●)ﾉ", "打卡ヾ(❀╹◡╹)ﾉ~", "打卡( ✿＞◡❛)", "打卡( ・◇・)", "打卡վ'ᴗ' ի"];
+    let emojiList = ["੭ ᐕ)੭*⁾⁾打卡", "|•'▿'•)✧打卡", "_(:3ゝ∠)_打卡", "ᕕ( ´Д` )ᕗ打卡", "( TロT)σ打卡", "( ☉д⊙)打卡", "打卡o(￣ヘ￣o＃)", "(╯°口°)╯打卡！", "( ｣ﾟДﾟ)｣＜打卡"];
     let formData = new FormData();
     formData.set("bubble", 0);
     formData.set("color", 16777215);
@@ -139,34 +146,35 @@
     // 运行部分结束
 
     async function main(pageNum = 1) {
-        my_id = document.cookie.match(/DedeUserID=(\d*); /)[1];
-        today = new Date().toLocaleDateString();
-        if (GM_getValue(`finished-${my_id}`) == today) {
-            let tomorrow = new Date(new Date().toLocaleDateString()).getTime() + 86410000;
-            setTimeout(main, tomorrow - Date.now());
-            console.log(`自动续牌-今日已打卡完毕，预计在 ${new Date(tomorrow).toLocaleString()} 开始下一轮打卡`);
+        today = Setting.Beijing_date;
+        if (GM_getValue(`finished-${Setting.UID}`) == today) {
+            let tomorrowDiff = (new Date(Setting.Beijing_date).getTime() + 86410000) - Setting.Beijing_ts;
+            setTimeout(main, tomorrowDiff);
+            let localeDiff = new Date(Date.now() + tomorrowDiff).toLocaleString("zh-CN");
+            console.log(`自动续牌-今日已打卡完毕，北京时间明天0点（当地时间${localeDiff}）会开始下一轮打卡`);
             return;
         };
         let result = undefined;
-        let finished = false;
+        let unfinished = 0;
         do {
             console.log(`自动续牌-开始打卡，正在加载第 ${pageNum} 页`);
             result = await getMedalDetail(pageNum++);
-            finished = checker(result.list, result.list.length >= 200);
+            unfinished += checker(result.list, result.list.length >= 200);
             // 睡一会防止消费未开始直接翻页
             await sleep(1000);
             // 等这一页的打卡任务都完成后再进行翻页
             await messageQueue.hangingUp("likeInteract");
             await messageQueue.hangingUp("sendDanmu");
         } while (result.hasNext);
-        if (finished) {
-            GM_setValue(`finished-${my_id}`, today);
-            let tomorrow = new Date(new Date().toLocaleDateString()).getTime() + 86410000;
-            setTimeout(main, tomorrow - Date.now());
-            console.log(`自动续牌-主流程执行完毕，明日0点会开始下一轮打卡`);
+        if (unfinished == 0) {
+            GM_setValue(`finished-${Setting.UID}`, today);
+            let tomorrowDiff = (new Date(Setting.Beijing_date).getTime() + 86410000) - Setting.Beijing_ts;
+            setTimeout(main, tomorrowDiff);
+            let localeDiff = new Date(Date.now() + tomorrowDiff).toLocaleString("zh-CN");
+            console.log(`自动续牌-今日已打卡完毕，北京时间明天0点（当地时间${localeDiff}）会开始下一轮打卡`);
         } else {
             setTimeout(main, 60 * 1000 * 10);
-            console.log(`自动续牌-预计十分钟后执行下一轮打卡`);
+            console.log(`自动续牌-预计 ${new Date(Date.now() + 600000).toLocaleTimeString()} 执行下一轮打卡`);
         }
     }
 
@@ -184,8 +192,9 @@
                     }
                     // 最近获得、当前房间、当前佩戴会在这个特殊列表内，需要添加到总列表当中
                     let list = [];
+                    let ts = btoa(new Date().toLocaleTimeString());
                     for (const item of json.data.list.concat(json.data.special_list)) {
-                        list.push(new Medal(item));
+                        list.push(new Medal(item, ts));
                     }
                     let detail = {
                         list: list,
@@ -203,120 +212,164 @@
         let finished = 0;
         for (let medal of medalDetail) {
             // 判断黑名单、白名单、是否已完成打卡
-            if (blackList.includes(medal.userId()) || (whiteList.length && !whiteList.includes(medal.userId())) || medal.isAttended()) {
+            if (blackList.includes(medal.uid) || (whiteList.length && !whiteList.includes(medal.uid)) || medal.isFinished) {
                 finished++;
                 continue;
             }
-            // 直播时不打卡
-            if (medal.isLive()) {
-                console.log(`自动续牌-${medal.userName()}正在直播，已跳过`);
+            // 行为参数
+            let action = {
+                "danmu": medal.customDanmu && medal.isNotCheckIn,
+                "like": false,
+                "watch": false,
+                "share": false,
+                get finished() {
+                    return !(this.danmu || this.like || this.watch || this.share);
+                }
+            }
+
+            switch (打卡模式) {
+                case "常亮":
+                    if (medal.isNotLighted) {
+                        action.danmu = true;
+                    }
+                case "无痕":
+                    if (medal.onlyFans) {
+                        if (medal.isNotLiked) {
+                            action.like = true;
+                        }
+                        if (medal.isNotWatched) {
+                            action.watch = true;
+                        }
+                    }
+                    break;
+                case "低保":
+                    if (medal.isNotLighted) {
+                        action.danmu = true;
+                    }
+                    break;
+                case "默认":
+                default:
+                    if (medal.onlyFans) {
+                        if (medal.isNotCheckIn) {
+                            action.danmu = true;
+                        }
+                        if (medal.isNotLiked) {
+                            action.like = true;
+                        }
+                        if (medal.isNotWatched) {
+                            action.watch = true;
+                        }
+                    } else if (medal.isNotLighted) {
+                        action.danmu = true;
+                    }
+            }
+
+            if (action.finished) {
+                finished++;
+                continue;
+            } else if (medal.isStreaming) {    // 直播时不打卡
+                console.log(`自动续牌-${medal.name}正在直播，已跳过`);
                 continue;
             }
-            if (medal.isNotCheckedIn()) {
-                // 弹幕打卡
+
+            if (action.danmu) {
+                // 弹幕
                 messageQueue.triggerInteract("sendDanmu", sendMsg, medal, sync ? 5000 : 1000);
             }
-            if (medal.intimacyEarnable()) {
-                if (medal.isNotLiked()) {
-                    // 点赞打卡
-                    // for (let i = 0; i < 3; i++) {
-                    messageQueue.triggerInteract("likeInteract", likeInteract, medal, sync ? 6000 : 1200);
-                    // }
-                }
-                // 防止同时过多挂机任务导致无法获得亲密度，限制最多50个
-                if (
-                    medal.isNotWatched() &&
-                    !watchingList.has(medal.roomId()) &&
-                    (!messageQueue.queueInfo["watchLive"] ||
-                        messageQueue.queueInfo["watchLive"].queue.length + watchingList.size < 50)
-                ) {
-                    // 挂机观看
+            if (action.like) {
+                // 点赞
+                messageQueue.triggerInteract("likeInteract", likeInteract, medal, sync ? 6000 : 1200);
+            }
+            if (action.watch) {
+                // 观看
+                if (!(watchingList.has(medal.rid) ||
+                    (messageQueue.queueInfo["watchLive"] != undefined &&
+                        messageQueue.queueInfo["watchLive"].queue.length + watchingList.size >= 50))) {
                     messageQueue.triggerInteract("watchLive", watchLive, medal, 1000);
                 }
-                // if (medal.isNotShared()) {
-                //     shareList.push(medal);
-                // }
+            }
+            if (action.share) {
+                // 分享
+                shareList.push(medal);
             }
         };
-        // 分享打卡
+        // // 分享打卡
         // let gap = 1000;
         // if (shareList.length <= 5) {
-        //     gap = 6000;
+        //     gap = 10000;
         // }
+        // // 分享五次
         // for (let i = 0; i < 5; i++) {
         //     shareList.forEach(medal => {
         //         messageQueue.triggerInteract("shareInteract", shareInteract, medal, gap);
         //     });
         // }
-        // 完成后保存标志
-        if (finished == medalDetail.length) {
-            return true;
-        }
+
+        // 用于完成后保存标志
+        return medalDetail.length - finished;
     }
 
     async function likeInteract(medal) {
-        console.log(`自动续牌-给 ${medal.userName()} 点赞`);
-        if (SHUTUP) { return true; }
+        console.log(`自动续牌-给 ${medal.name} 点赞`);
+        if (拦截请求) { return true; }
         return new Promise((resolve, reject) => {
             fetch("https://api.live.bilibili.com/xlive/web-ucenter/v1/interact/likeInteract", {
                 "headers": {
                     "content-type": "application/x-www-form-urlencoded",
                     "sec-ch-ua": "Mozilla/5.0 BiliDroid/6.73.1 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/6731100 channel/pairui01 innerVer/6731100 osVer/11 network/2",
                 },
-                "body": `roomid=${medal.roomId()}&csrf_token=${jct()}&csrf=${jct()}&visit_id=`,
+                "body": `roomid=${medal.rid}&csrf_token=${Setting.TOKEN}&csrf=${Setting.TOKEN}&visit_id=`,
                 "method": "POST",
                 "mode": "cors",
                 "credentials": "include"
             })
                 .then(response => response.json())
                 .then(json => {
-                    let count = +medal.getLikedCount();
                     if (json.code == json.message) {
-                        medal.setLikedCount(++count);
+                        medal.liked.count++;
                         resolve(true);
+                        saveRecords(medal);
                     } else {
-                        console.warn(`自动续牌-${medal.userName()}点赞失败`, json);
+                        console.warn(`自动续牌-${medal.name}点赞失败`, json);
                         resolve(false);
                     }
-                    saveRecords(medal);
                 });
         });
     }
 
     async function shareInteract(medal) {
-        console.log(`自动续牌-分享 ${medal.userName()} 的直播间`);
-        if (SHUTUP) { return true; }
+        console.log(`自动续牌-分享 ${medal.name} 的直播间`);
+        if (拦截请求) { return true; }
         return new Promise((resolve, reject) => {
             fetch("https://api.live.bilibili.com/xlive/web-room/v1/index/TrigerInteract", {
                 "headers": {
                     "content-type": "application/x-www-form-urlencoded",
                 },
-                "body": `roomid=${medal.roomId()}&csrf_token=${jct()}&csrf=${jct()}&interact_type=3`,
+                "body": `roomid=${medal.rid}&csrf_token=${Setting.TOKEN}&csrf=${Setting.TOKEN}&interact_type=3`,
                 "method": "POST",
                 "mode": "cors",
                 "credentials": "include"
             })
                 .then(response => response.json())
                 .then(json => {
-                    let count = +medal.getSharedCount();
                     if (json.code == json.message) {
-                        medal.setSharedCount(++count);
+                        medal.shared.count++;
+                        saveRecords(medal);
                         resolve(true);
                     } else {
-                        console.warn(`自动续牌-${medal.userName()}的直播间分享失败`, json);
+                        console.warn(`自动续牌-${medal.name}的直播间分享失败`, json);
                         resolve(false);
                     }
-                    saveRecords(medal);
                 });
         });
     }
 
     async function watchLive(medal) {
-        console.log(`自动续牌-开始挂机观看 ${medal.userName()} 的直播间`);
-        if (SHUTUP) { return true; }
+        console.log(`自动续牌-开始挂机观看 ${medal.name} 的直播间`);
+        if (拦截请求) { return true; }
         return new Promise(async (resolve, reject) => {
-            let rid = medal.roomId();
-            let roomHeart = new RoomHeart(rid, (14 - medal.getRealWatchedCount()) * 5 + 1);
+            let rid = medal.rid;
+            let roomHeart = new RoomHeart(rid, (14 - medal.watchCount) * 5 + 1);
             roomHeart.doneFunc = () => {
                 watchingList.delete(rid);
             }
@@ -326,29 +379,28 @@
             watchingList.add(rid);
             let result = await roomHeart.start();
             if (!result) {
-                medal.setWatchedCount(15);
+                medal.watched.count = 15;
                 saveRecords(medal);
-                console.log(`自动续牌-${medal.userName()}的直播间没有设置分区，取消观看`);
+                console.log(`自动续牌-${medal.name}的直播间没有设置分区，取消观看`);
             }
             resolve(true);
         });
     }
 
     async function sendMsg(item) {
-        // console.log(`自动续牌-给 ${item.userName()} 发送弹幕打卡`);
-        if (SHUTUP) { return true; }
+        if (拦截请求) { console.log(`自动续牌-给 ${item.name} 发送弹幕打卡`); return true; }
         let msg;
-        let uid = item.userId();
+        let uid = item.uid;
         let medalStatus = false;
         // 需要戴粉丝牌才能发言
-        if (item.getCheckInReason() == "-403") {
+        if (item.checkIn.failedReason == "-403") {
             medalStatus = true;
-            await wearMedal(item.medalId());
+            await wearMedal(item.medalId);
         }
         // 查询自定义内容
         if (customDanmu[uid]) {
             msg = customDanmu[uid];
-            let reg = new RegExp(`\(official\|room_${item.roomId()}\)_\\d+`);
+            let reg = new RegExp(`\(official\|room_${item.rid}\)_\\d+`);
             // 判断内容符合表情包则添加表情标识
             if (msg.match(reg)) {
                 formData.set("dm_type", 1);
@@ -357,10 +409,10 @@
             formData.delete("dm_type");
             msg = emojiList[(Math.random() * 100 >> 0) % emojiList.length];
         }
-        formData.set("csrf", jct());
-        formData.set("csrf_token", jct());
+        formData.set("csrf", Setting.TOKEN);
+        formData.set("csrf_token", Setting.TOKEN);
         formData.set("msg", msg);
-        formData.set("roomid", item.roomId());
+        formData.set("roomid", item.rid);
         formData.set("rnd", Math.floor(new Date() / 1000));
         return new Promise((resolve) => {
             fetch("//api.live.bilibili.com/msg/send", {
@@ -370,11 +422,11 @@
             })
                 .then(response => response.json())
                 .then(async result => {
-                    console.log("自动续牌-打卡结果：", item.userName(), result);
+                    console.log("自动续牌-打卡结果：", item.name, result);
                     if (medalStatus) {
                         await takeOff();
                     }
-                    let count = +item.getCheckInCount();
+                    let count = +item.checkIn.count;
                     let returnValue = false;
                     // 10024: 拉黑
                     // 10030: 弹幕发送过快
@@ -385,7 +437,7 @@
                     switch (result.code) {
                         case 0:
                             if (result.code == result.msg) {
-                                item.setCheckInCount(3);
+                                item.checkIn.count = 3;
                                 returnValue = true;
                                 break;
                             } else if (result.msg == "k") {
@@ -398,10 +450,10 @@
                                 }
                                 count -= 0.3; // 给多几次机会
                             }
-                            item.setCheckInCount(++count);
+                            item.checkIn.count = ++count;
                         case 10030:
                         case 10031:
-                            item.setCheckInReason(result.code);
+                            item.checkIn.failedReason = result.code;
                             break;
                         case -111:
                             // 不应该出现
@@ -409,15 +461,15 @@
                             break;
                         case 10024:
                         // 拉黑了也可以挂直播
-                        // item.setForceStopTimestamp(today);
+                        // item.forceStop.timestamp = today;
                         case 1003:
                             count = 3;
                             returnValue = true;
                         case -403:
                             count += 1.6;
                         default:
-                            item.setCheckInCount(++count);
-                            item.setCheckInReason(result.code);
+                            item.checkIn.count = ++count;
+                            item.checkIn.failedReason = result.code;
                             break;
                     }
                     // 防止未处理的情况出现死循环
@@ -439,8 +491,8 @@
         return new Promise((r, j) => {
             let params = new FormData();
             params.set("medal_id", medal_id);
-            params.set("csrf_token", jct());
-            params.set("csrf", jct());
+            params.set("csrf_token", Setting.TOKEN);
+            params.set("csrf", Setting.TOKEN);
             fetch("https://api.live.bilibili.com/xlive/web-room/v1/fansMedal/wear", {
                 credentials: "include",
                 method: 'POST',
@@ -456,8 +508,8 @@
     async function takeOff() {
         return new Promise((r, j) => {
             let params = new FormData();
-            params.set("csrf_token", jct());
-            params.set("csrf", jct());
+            params.set("csrf_token", Setting.TOKEN);
+            params.set("csrf", Setting.TOKEN);
             fetch("https://api.live.bilibili.com/xlive/web-room/v1/fansMedal/take_off", {
                 credentials: "include",
                 method: 'POST',
@@ -470,11 +522,6 @@
         });
     }
 
-    function jct() {
-        let regex = document.cookie.match(/bili_jct=(\w*); /);
-        return regex && regex[1];
-    }
-
     async function sleep(ms = 500) {
         return new Promise(r => {
             if (ms <= 0) { r(true); }
@@ -485,131 +532,12 @@
     }
 
     function getRecords(medalId) {
-        return GM_getValue(`${medalId}-${my_id}`, {});
+        return GM_getValue(`${medalId}-${Setting.UID}`, {});
     }
 
     async function saveRecords(medal) {
-        return GM_setValue(`${medal.medalId()}-${my_id}`, {
-            checkIn: medal.checkIn,
-            liked: medal.liked,
-            shared: medal.shared,
-            watched: medal.watched,
-            forceStop: medal.forceStop,
-        });
+        return GM_setValue(`${medal.medalId}-${Setting.UID}`, medal.toObject());
     }
-
-    function Medal(detail) {
-        this.info = detail;
-        let records = getRecords(this.medalId());
-        if (records.checkIn && records.checkIn.timestamp == today) {
-            this.checkIn = records.checkIn;
-        } else {
-            this.checkIn = {
-                count: 0,
-                failedReason: undefined,
-                timestamp: today,
-            };
-        }
-        if (records.liked && records.liked.timestamp == today) {
-            this.liked = records.liked;
-        } else {
-            this.liked = {
-                count: 0,
-                timestamp: today,
-            };
-        }
-        if (records.shared && records.shared.timestamp == today) {
-            this.shared = records.shared;
-        } else {
-            this.shared = {
-                count: 0,
-                timestamp: today,
-            };
-        }
-        if (records.watched && records.watched.timestamp == today) {
-            this.watched = records.watched;
-        } else {
-            this.watched = {
-                count: 0,
-                timestamp: today,
-            };
-        }
-        if (records.forceStop && records.forceStop.timestamp == today) {
-            this.forceStop = records.forceStop;
-        } else {
-            this.forceStop = {
-                timestamp: undefined,
-            };
-        }
-    }
-
-    // 基础
-    Medal.prototype.getIntimacy = function () { return this.info.medal.today_feed; };
-    Medal.prototype.isZero = function () { return this.info.medal.today_feed < 99; };
-    Medal.prototype.isLighted = function () { return this.info.medal.is_lighted; };
-    Medal.prototype.isDarkened = function () { return !this.info.medal.is_lighted; };
-    Medal.prototype.isGuard = function () { return this.info.medal.guard_level != 0; };
-    Medal.prototype.wasGuard = function () { return this.info.medal.level > 20; };
-    Medal.prototype.intimacyEarnable = function () { return this.info.medal.level <= 20; };
-    Medal.prototype.userId = function () { return this.info.medal.target_id; };
-    Medal.prototype.userName = function () { return this.info.anchor_info.nick_name; };
-    Medal.prototype.roomId = function () { return this.info.room_info.room_id; };
-    Medal.prototype.medalId = function () { return this.info.medal.medal_id; };
-    Medal.prototype.isCheckedIn = function () { return this.checkIn.count >= 3; };
-    Medal.prototype.isShared = function () { return this.shared.count >= 5; };
-    Medal.prototype.isLiked = function () { return this.liked.count >= 1; };
-    Medal.prototype.isLive = function () { return this.info.room_info.living_status == 1; };  // 0:没播   1:开播  2:录播
-    Medal.prototype.isWatched = function () { return this.watched.count >= 15 };
-    Medal.prototype.isAttended = function () {
-        // 防止没有用户没有直播间的情况死循环
-        if (this.forceStop.timestamp == today || !this.roomId()) {
-            return true;
-        }
-        if (this.wasGuard()) {
-            return this.isLighted() && !(customDanmu[this.userId()] && this.isNotCheckedIn());
-        } else {
-            return this.info.medal.today_feed >= 1500 || (this.isWatched() && this.isCheckedIn() && this.isLiked());
-        }
-    };
-    Medal.prototype.isNotCheckedIn = function () { return !this.isCheckedIn(); };
-    Medal.prototype.isNotAttended = function () { return !this.isAttended(); };
-    Medal.prototype.isNotShared = function () { return !this.isShared(); };
-    Medal.prototype.isNotLiked = function () { return !this.isLiked(); };
-    Medal.prototype.isNotLive = function () { return !this.isLive(); };
-    Medal.prototype.isNotZero = function () { return !this.isZero(); };
-    Medal.prototype.isNotWatched = function () { return !this.isWatched() };
-    // 打卡
-    Medal.prototype.getCheckInCount = function () { return this.checkIn.count; };
-    Medal.prototype.setCheckInCount = function (value) { return this.checkIn.count = value; };
-    Medal.prototype.getCheckInReason = function () { return this.checkIn.failedReason; };
-    Medal.prototype.setCheckInReason = function (value) { return this.checkIn.failedReason = value; };
-    Medal.prototype.getCheckInTimestamp = function () { return this.checkIn.timestamp; };
-    Medal.prototype.setCheckInTimestamp = function (value) { return this.checkIn.timestamp = value; };
-    // 点赞
-    Medal.prototype.getLikedCount = function () { return this.liked.count; };
-    Medal.prototype.setLikedCount = function (value) { return this.liked.count = value; };
-    Medal.prototype.getLikedTimestamp = function () { return this.liked.timestamp; };
-    Medal.prototype.setLikedTimestamp = function (value) { return this.liked.timestamp = value; };
-    // 分享
-    Medal.prototype.getSharedCount = function () { return this.shared.count; };
-    Medal.prototype.setSharedCount = function (value) { return this.shared.count = value; };
-    Medal.prototype.getSharedTimestamp = function () { return this.shared.timestamp; };
-    Medal.prototype.setSharedTimestamp = function (value) { return this.shared.timestamp = value; };
-    // 观看
-    Medal.prototype.getRealWatchedCount = function () {
-        // 计算真实次数
-        let watchTimes = Math.floor(this.getIntimacy() / 100);
-        this.isCheckedIn() && watchTimes--;
-        this.isLiked() && watchTimes--;
-        return watchTimes;
-    };
-    Medal.prototype.getWatchedCount = function () { return this.watched.count; };
-    Medal.prototype.setWatchedCount = function (value) { return this.watched.count = value; };
-    Medal.prototype.getWatchedTimestamp = function () { return this.watched.timestamp; };
-    Medal.prototype.setWatchedTimestamp = function (value) { return this.watched.timestamp = value; };
-    // 停止
-    Medal.prototype.getForceStopTimestamp = function () { return this.forceStop.timestamp; };
-    Medal.prototype.setForceStopTimestamp = function (value) { return this.forceStop.timestamp = value; };
 
     async function getRoomInfo(rid) {
         return new Promise((resolve, reject) => {
@@ -654,7 +582,7 @@
                             "content-type": "application/x-www-form-urlencoded",
                             "sec-ch-ua": "Mozilla/5.0 BiliDroid/6.73.1 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/6731100 channel/pairui01 innerVer/6731100 osVer/11 network/2",
                         },
-                        "body": `roomid=${roomInfo.room_id}&csrf_token=${jct()}&csrf=${jct()}&visit_id=`,
+                        "body": `roomid=${roomInfo.room_id}&csrf_token=${Setting.TOKEN}&csrf=${Setting.TOKEN}&visit_id=`,
                         "method": "POST",
                         "mode": "cors",
                         "credentials": "include"
@@ -663,17 +591,17 @@
                         .then(json => {
                             console.log("自动打卡-点赞结果：", json);
                             // 成功的话就给点赞次数+1
-                            if (json.code == json.message) {
+                            if (json.code == json.message && fansMedalInfo) {
                                 let record = getRecords(fansMedalInfo.medal_id);
-                                record.liked.count = record.liked.count + 1;
-                                record.liked.timestamp = new Date().toLocaleDateString();
-                                GM_setValue(`${fansMedalInfo.medal_id}-${my_id}`, {
-                                    checkIn: record.checkIn,
-                                    liked: record.liked,
-                                    shared: record.shared,
-                                    watched: record.watched,
-                                    forceStop: record.forceStop,
-                                });
+                                if (record.liked && record.liked.timestamp == today) {
+                                    record.liked.count++;
+                                } else {
+                                    record.liked = {
+                                        count: 1,
+                                        timestamp: today,
+                                    };
+                                }
+                                GM_setValue(`${fansMedalInfo.medal_id}-${Setting.UID}`, record);
                             }
                         });
                     let chatHistory = document.querySelector("#chat-history-list");
@@ -689,6 +617,303 @@
                 requestIdleCallback(addBtn, { timeout: 1000 });
             }
         })();
+    }
+
+    class Medal {
+        #user_id;
+        #user_name;
+        #medal_id;
+        #medal_name;
+        #medal_level;
+        #room_id;
+        #today_feed;
+        #is_lighted;
+        #is_streaming;
+        #is_guard;
+
+        #ts;
+
+        #check_in;
+        #like;
+        #share;
+        #watch;
+        #force_stop;
+
+        get timestamp() {
+            return this.#ts;
+        }
+
+        get uid() {
+            return this.#user_id;
+        }
+        get name() {
+            return this.#user_name;
+        }
+        get medalId() {
+            return this.#medal_id;
+        }
+        get medalName() {
+            return this.#medal_name;
+        }
+        get medalLevel() {
+            return this.#medal_level;
+        }
+        get rid() {
+            return this.#room_id;
+        }
+        get intimacy() {
+            return this.#today_feed;
+        }
+        get isLighted() {
+            return this.#is_lighted;
+        }
+        get isStreaming() {
+            return this.#is_streaming;
+        }
+        get isGuard() {
+            return this.#is_guard;
+        }
+
+        get isNotLighted() {
+            return !this.isLighted;
+        }
+        get isNotStreaming() {
+            return !this.isStreaming;
+        }
+        get isNotGuard() {
+            return !this.isGuard;
+        }
+
+        get checkIn() { return this.#check_in; }
+        get liked() { return this.#like; }
+        get shared() { return this.#share; }
+        get watched() { return this.#watch; }
+        // get forceStop() { return this.#force_stop; }
+
+        get isCheckIn() {
+            return this.#check_in.count >= 3 || (this.intimacy >= 100 && this.isNotLiked && this.isLighted);
+        }
+        get isLiked() {
+            return this.#like.count >= 1;
+        }
+        get isShared() {
+            return this.#share.count >= 5;
+        }
+        get isWatched() {
+            return this.#watch.count >= 15;
+            // || this.watchCount >= 15;
+        }
+        get isFinished() {
+            if (this.forceStop) {
+                return true;
+            }
+            if (this.wasGuard) {
+                return this.customDanmu ? this.isCheckIn : this.isLighted;
+            }
+            return this.intimacy >= 1500;
+        }
+        get forceStop() {
+            return this.#force_stop.timestamp != undefined;
+        }
+        get wasGuard() {
+            return this.#medal_level > 20;
+        }
+        get onlyFans() {    // 乛◡乛
+            return this.#medal_level <= 20;
+        }
+        get customDanmu() {
+            return customDanmu[this.uid];
+        }
+        get watchCount() {
+            // 计算真实观看次数
+            let watchTimes = Math.floor(this.intimacy / 100);
+            this.isCheckIn && watchTimes--;
+            this.isLiked && watchTimes--;
+            return watchTimes;
+        }
+
+        get isNotCheckIn() {
+            return !this.isCheckIn;
+        }
+        get isNotLiked() {
+            return !this.isLiked;
+        }
+        get isNotShared() {
+            return !this.isShared;
+        }
+        get isNotWatched() {
+            return !this.isWatched;
+        }
+
+        toObject() {
+            return {
+                checkIn: this.#check_in.toObject(),
+                liked: this.#like.toObject(),
+                shared: this.#share.toObject(),
+                watched: this.#watch.toObject(),
+                forceStop: this.#force_stop.toObject(),
+            }
+        }
+
+        constructor(detail, timestamp = btoa(new Date().toLocaleTimeString())) {
+            this.#user_id = detail.medal.target_id;
+            this.#user_name = detail.anchor_info.nick_name;
+            this.#medal_id = detail.medal.medal_id;
+            this.#medal_name = detail.medal.medal_name;
+            this.#medal_level = detail.medal.level;
+            this.#room_id = detail.room_info.room_id;
+            this.#today_feed = detail.medal.today_feed;
+            this.#is_lighted = detail.medal.is_lighted == 1;
+            this.#is_streaming = detail.room_info.living_status == 1;
+            this.#is_guard = detail.medal.guard_level != 0;
+            this.#ts = timestamp;
+
+            let records = getRecords(detail.medal.medal_id);
+            this.#check_in = new CheckIn(records.checkIn);
+            this.#like = new Like(records.liked);
+            this.#share = new Share(records.shared);
+            this.#watch = new Watch(records.watched);
+            this.#force_stop = new ForceStop(records.forceStop);
+        }
+
+    }
+    class Watch {
+        #count = 0;
+        #timestamp;
+
+        set count(val) {
+            this.#count = val;
+        }
+        get count() {
+            return this.#count;
+        }
+        get timestamp() {
+            return this.#timestamp;
+        }
+        toObject() {
+            return {
+                count: this.#count,
+                timestamp: this.#timestamp,
+            };
+        }
+
+        constructor(detail) {
+            this.#timestamp = today;
+            if (detail && detail.timestamp == today) {
+                this.#count = detail.count;
+            }
+        }
+    }
+    class CheckIn {
+        #count = 0;
+        #failed_reason = undefined;
+        #timestamp;
+
+        set count(val) {
+            this.#count = val;
+        }
+        get count() {
+            return this.#count;
+        }
+        set failedReason(val) {
+            this.#failed_reason = val;
+        }
+        get failedReason() {
+            return this.#failed_reason;
+        }
+        get timestamp() {
+            return this.#timestamp;
+        }
+        toObject() {
+            return {
+                count: this.#count,
+                failedReason: this.#failed_reason,
+                timestamp: this.#timestamp,
+            };
+        }
+
+        constructor(detail) {
+            this.#timestamp = today;
+            if (detail && detail.timestamp == today) {
+                this.#count = detail.count;
+                this.#failed_reason = detail.failed_reason;
+            }
+        }
+    }
+    class ForceStop {
+        #timestamp = undefined;
+
+        set timestamp(val) {
+            this.#timestamp = val;
+        }
+        get timestamp() {
+            return this.#timestamp;
+        }
+        toObject() {
+            return {
+                timestamp: this.#timestamp,
+            };
+        }
+
+        constructor(detail) {
+            if (detail && detail.timestamp == today) {
+                this.#timestamp = today;
+            }
+        }
+    }
+    class Like {
+        #count = 0;
+        #timestamp;
+
+        set count(val) {
+            this.#count = val;
+        }
+        get count() {
+            return this.#count;
+        }
+        get timestamp() {
+            return this.#timestamp;
+        }
+        toObject() {
+            return {
+                count: this.#count,
+                timestamp: this.#timestamp,
+            };
+        }
+
+        constructor(detail) {
+            this.#timestamp = today;
+            if (detail && detail.timestamp == today) {
+                this.#count = detail.count;
+            }
+        }
+    }
+    class Share {
+        #count = 0;
+        #timestamp;
+
+        set count(val) {
+            this.#count = val;
+        }
+        get count() {
+            return this.#count;
+        }
+        get timestamp() {
+            return this.#timestamp;
+        }
+        toObject() {
+            return {
+                count: this.#count,
+                timestamp: this.#timestamp,
+            };
+        }
+
+        constructor(detail) {
+            this.#timestamp = today;
+            if (detail && detail.timestamp == today) {
+                this.#count = detail.count;
+            }
+        }
     }
 
 })();
