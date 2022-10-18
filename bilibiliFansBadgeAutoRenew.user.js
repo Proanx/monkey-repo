@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.14
+// @version      0.2.16
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -192,7 +192,7 @@
                     }
                     // 最近获得、当前房间、当前佩戴会在这个特殊列表内，需要添加到总列表当中
                     let list = [];
-                    let ts = btoa(new Date().toLocaleTimeString("zh-CN"));
+                    let ts = new Date().toLocaleTimeString("zh-CN");
                     for (const item of json.data.list.concat(json.data.special_list)) {
                         list.push(new Medal(item, ts));
                     }
@@ -755,7 +755,7 @@
             }
         }
 
-        constructor(detail, timestamp = btoa(new Date().toLocaleTimeString("zh-CN"))) {
+        constructor(detail, timestamp = new Date().toLocaleTimeString("zh-CN")) {
             this.#user_id = detail.medal.target_id;
             this.#user_name = detail.anchor_info.nick_name;
             this.#medal_id = detail.medal.medal_id;
