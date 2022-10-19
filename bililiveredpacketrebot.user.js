@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.2.2
+// @version         0.2.3
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -42,11 +42,11 @@
             return regex && regex[1];
         },
         get Beijing_date() {    // eg. 2022/10/15
-            return new Date(this.beijing_ts).toLocaleDateString("zh-CN");
+            return new Date(Setting.Beijing_ts).toLocaleDateString("zh-CN");
         },
         get Beijing_ts() {
             let local = new Date();
-            let diff = (local.getTimezoneOffset() - this.beijing_timezoneOffset) * 60 * 1000;
+            let diff = (local.getTimezoneOffset() - Setting.Beijing_timezoneOffset) * 60 * 1000;
             return local.valueOf() + diff;
         },
         get Beijing_timezoneOffset() {
