@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.16
+// @version      0.2.17
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -398,16 +398,13 @@
             await wearMedal(item.medalId);
         }
         // 查询自定义内容
-        if (customDanmu[uid]) {
-            msg = customDanmu[uid];
-            let reg = new RegExp(`\(official\|room_${item.rid}\)_\\d+`);
-            // 判断内容符合表情包则添加表情标识
-            if (msg.match(reg)) {
-                formData.set("dm_type", 1);
-            }
+        msg = customDanmu[uid] || emojiList[(Math.random() * 100 >> 0) % emojiList.length];
+        let reg = new RegExp(`\(official\|room_${item.rid}\)_\\d+`);
+        // 判断内容符合表情包则添加表情标识
+        if (msg.match(reg)) {
+            formData.set("dm_type", 1);
         } else {
             formData.delete("dm_type");
-            msg = emojiList[(Math.random() * 100 >> 0) % emojiList.length];
         }
         formData.set("csrf", Setting.TOKEN);
         formData.set("csrf_token", Setting.TOKEN);
