@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.1.6
+// @version      1.2.0
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -12,7 +12,7 @@
 // @require      https://greasyfork.org/scripts/439903-blive-room-info-api/code/blive_room_info_api.js?version=1037039
 // ==/UserScript==
 
-// csrf过期后调用原生徽章不起作用
+// ! csrf过期后调用原生徽章按钮不会刷新状态
 
 (function init() {
     'use strict';
@@ -22,7 +22,11 @@
     // 默认粉丝牌UID   如果拥有该用户的粉丝牌会在退出直播间时切换到这个粉丝牌
     // 为falsey时关闭此功能
     let defaultMedalUid = 0;
+    // 设置是否支持使用拼音查找粉丝牌/ID
+    // 为falsey时关闭此功能
+    let pinyin = 1;
 
+    let pinyinPro = undefined;
     let my_id = document.cookie.match(/DedeUserID=(\d*); /)[1];
     let controlPanelCtnrBox = document.querySelector(".medal-section");
     let originMedalSelectorDebounce = null;
@@ -51,7 +55,7 @@
     // 加载动画
     GM_addStyle(".medal-loading{height:30px;color:#bbb;font-size:13px;display:flex;align-items:center;justify-content:center}.medal-loading>i.icon-link-world{font-size:12px;margin-left:5px;animation:medal-loading-rotate 2s infinite}.medal-loading>i.icon-info{margin-right:5px}@keyframes medal-loading-rotate{from{transform:rotate(45deg)}to{transform:rotate(405deg)}}");
     // body内的条目css
-    GM_addStyle(".medal-list-move{transition:transform .5s!important}.medal-wear-body{height:335px;margin-top:5px;padding-right:2px;overflow:auto;scrollbar-width:thin}.medal-wear-body::-webkit-scrollbar{width:6px}.medal-wear-body::-webkit-scrollbar-thumb{background-color:#aaa}.medal-item-content{display:flex;justify-content:space-between}.medal-wear-body .medal-item{padding:5px 5px 3px;background:0;border:1px solid transparent;border-radius:5px;width:calc(100% - 12px);text-align:left;transition:border,background .2s}.medal-wear-body .medal-item:hover{border:1px solid #d7d7d7;background-color:#f5f5f5}.medal-item .face,.medal-item .search-user-avatar{width:auto;height:35px;margin-right:5px;padding:1px;position:relative;transition:filter .3s}.medal-item .face:hover,.medal-item .search-user-avatar:hover{filter:drop-shadow(0px 0 3px #fb7299);cursor:alias}.medal-item .face>img{height:35px;border-radius:50%}.medal-wear-body .medal-item .name{color:#666;position:relative;max-width:calc(100% - 78px);font-size:14px;line-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}.medal-wear-body .medal-item .name:hover{color:#00aeec}.medal-wear-body .medal-item .living-gif{background-image:url(//s1.hdslb.com/bfs/static/blive/live-fansmedal-wall/static/img/icon-online.fd4254c1.gif);background-size:cover;width:16px;height:16px;transform:rotateY(180deg)}.medal-item .wear-icon{background-color:#fb7299;padding:0 2px;color:#fff;height:16px;border:1px solid #fb7299;border-radius:4px;line-height:16px;font-size:14px}.medal-item .room-icon{padding:0 2px;color:#fea249;height:16px;border:1px solid #fea249;border-radius:4px;line-height:16px;font-size:14px}.medal-item .content-icon{padding:0 2px;color:#40bf55;height:16px;border:1px solid #40bf55;border-radius:4px;line-height:16px;font-size:14px}.medal-wear-body .medal-item .text{color:#888;position:relative;line-height:18px;font-size:14px}.medal-wear-body .medal-item .left{color:#2cbce7;line-height:18px;font-size:14px;margin-right:5px}.medal-item-content .medal-content-head{height:18px}.medal-item-content .medal-content-footer{height:18px;padding-top:1px;width:100%}.medal-wear-body .medal-item .progress-level-div{margin-top:3px;width:100%;text-align:center;display:flex;justify-content:space-between;font-size:13px}.medal-wear-body .medal-item .progress-level-div .level-span-left{text-align:right!important}.medal-wear-body .medal-item .progress-level-div .level-span{width:33px;color:#999;padding-top:1px}.medal-wear-body .medal-item .progress-level-div .progress-div{line-height:16px;height:14px;width:70%;background-color:#e2e8ec;border-radius:2px;margin:0 2px;position:relative;overflow:hidden}.medal-wear-body .medal-item .progress-level-div .progress-div-cover{position:absolute;left:0;top:0;overflow:hidden;background-color:#23ade5}.medal-wear-body .medal-item .progress-level-div .progress-div .progress-num-span{color:#23ade5}.medal-wear-body .medal-item .progress-level-div .progress-div-cover .progress-num-span-cover{width:174px;position:relative;z-index:1000;color:#fff}");
+    GM_addStyle(".medal-list-move{transition:transform .5s!important}.medal-wear-body{height:335px;margin-top:5px;padding-right:2px;overflow:auto;scrollbar-width:thin}.medal-wear-body::-webkit-scrollbar{width:6px}.medal-wear-body::-webkit-scrollbar-thumb{background-color:#aaa}.medal-item-content{display:flex;justify-content:space-between}.medal-wear-body .medal-item{padding:5px 5px 3px;background:0;border:1px solid transparent;border-radius:5px;width:calc(100% - 12px);text-align:left;transition:border,background .2s}.medal-wear-body .medal-item:hover{border:1px solid #d7d7d7;background-color:#f5f5f5}.medal-item .face,.medal-item .search-user-avatar{width:auto;height:35px;margin-right:5px;padding:1px;position:relative;transition:filter .3s}.medal-item .face:hover,.medal-item .search-user-avatar:hover{filter:drop-shadow(0px 0 3px #fb7299);cursor:alias}.medal-item .face>img{height:35px;border-radius:50%}.medal-wear-body .medal-item .name{color:#666;position:relative;max-width:calc(100% - 78px);font-size:14px;line-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}.medal-wear-body .medal-item .name:hover{color:#00aeec}.medal-wear-body .medal-item .living-gif{background-image:url(//s1.hdslb.com/bfs/static/blive/live-fansmedal-wall/static/img/icon-online.fd4254c1.gif);background-size:cover;width:16px;height:16px;transform:rotateY(180deg)}.medal-item .wear-icon{background-color:#fb7299;padding:0 2px;color:#fff;height:16px;border:1px solid #fb7299;border-radius:4px;line-height:16px;font-size:14px}.medal-item .room-icon{padding:0 2px;color:#fea249;height:16px;border:1px solid #fea249;border-radius:4px;line-height:16px;font-size:14px}.medal-item .content-icon{padding:0 2px;color:#40bf55;height:16px;border:1px solid #40bf55;border-radius:4px;line-height:16px;font-size:14px}.medal-wear-body .medal-item .text{color:#888;position:relative;line-height:18px;font-size:14px}.medal-wear-body .medal-item .left{color:#2cbce7;line-height:18px;font-size:14px;margin-right:5px}.medal-item-content .medal-content-head{height:18px}.medal-item-content .medal-content-footer{height:18px;padding-top:1px;width:100%}.medal-wear-body .medal-item .progress-level-div{margin-top:3px;width:100%;text-align:center;display:flex;justify-content:space-between;font-size:13px}.medal-wear-body .medal-item .progress-level-div .level-span-left{text-align:right!important}.medal-wear-body .medal-item .progress-level-div .level-span{width:33px;color:#999;padding-top:1px}.medal-wear-body .medal-item .progress-level-div .progress-div{line-height:16px;height:14px;width:70%;background-color:#e2e8ec;border-radius:2px;margin:0 2px;position:relative;overflow:hidden}.medal-wear-body .medal-item .progress-level-div .progress-div-cover{position:absolute;left:0;top:0;overflow:hidden;background-color:#23ade5}.medal-wear-body .medal-item .progress-level-div .progress-div .progress-num-span{color:#23ade5}.medal-wear-body .medal-item .progress-level-div .progress-div-cover .progress-num-span-cover{width:174px;position:relative;z-index:1000;color:#fff}.medal-item.outdated{opacity:.5;filter:grayscale(0.5);}");
     // 面板css
     GM_addStyle(".chat-input-ctnr .medal-section{position:static;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0 12px;min-width:70px;height:56px;border-right:1px solid #e9eaec;box-sizing:border-box}.medal-section .action-item.medal.get-medal,.medal-section .action-item.medal.wear-medal{width:41px;height:24px;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFYAAAAyCAMAAADx7dyJAAAA51BMVEUAAACampqZmZmampqZmZmampqampqZmZmdnZ2oqKiamprU1NSZmZmZmZmZmZmvr6+ampqampqamprIyMiZmZmampqampqZmZmZmZmampqenp6cnJyfn5+ampqbm5uampqenp7Q0NDOzs6ampqamprPz8/Ozs6ampqbm5vMzMyZmZmZmZnNzc2bm5ubm5uZmZmampqcnJyampqampqampqampqamprNzc2amprU1NTU1NTU1NSamprV1dXS0tLR0dHT09PU1NTT09PW1tbS0tLMzMzt7e2ZmZnj4+PPz8/V1dXo6OjZ2dk1f/nUAAAARXRSTlMA49Zr8zV1SzkGgKukj4UL+q5iA97uw1mpiSAbDupeQRX6eLPNPBnIT+bm0rI9JsFlLdmWm41G+buqn35xMBHr2r5WRCgCpQL/AAADqUlEQVRYw7TS226qQBiG4Q8cUAg7hbHIRo1Y0epCa2vbA0/Jf/93tBhApYqJK3G9yT+QQJ4ME/D/et2s8qe12rxW6ix/crNyr/n3bIGntZh952K/G6E/s1m+AbDKF3hqi3wFIM9xlariqoGCOx19iEK/i8kUIiG2spKE32lxmhmNXiBy7aKExKplpE75PPo3tkudHnnyKbIgGtO5TkA6vpzEbWOVXlUc9+o0lBnOtEd/cIpVbDAumpNYM8Giw5Q2ltF1AUQ2S3DLupqoT+UloFGxhprbwh7VKs7Vuqj+2hfBGm9lcs0a1JL1+NnaHimC3ZnmnJumVbOTTjNKy4vyOKtTxQIw5cbZhvq5CLyPqkfZgDntrELG4SDJh0NCIfZDYGJMb9mweyqOz7ch4DujitUZc4ix9MIugyDtB8GuYIcyoFMLu6OWdrBJfanYkXfcxsdEvrCMc8fhnBWsz4GfNW7ZbFA1lzmX54OqDLBcwU5IGQ3FIagNVgG2BrCkUOzUZeb9s+1SV5KWjoJLgl1ScMt6+z1j+71EoXhnQsu7bMC3kCRs1/ZvtkP2NRtNJuu0Gg3vNPh0pvdYLXXeBZuxxP3F6gxnlluof1xvXYxc/q6xwfu4x5o0gGCxpE+3yX54F1YaQWR5nsOq6QCGQ1932MigT1QsLErsBttPL6xnoouyYVKOaEweEGotrOKR4Z5YjGgeXFjJr1ldxvojIgWR7/uxVMxbcRNhRx+A7rnXrKs64smZhUVsd2LfaVyysS79YNvPKELUbxQFjGIbvoxr1qS/tdZvS8JQFMfxHy2SFNxqJJUau6ggCdnSxDacf093d/P9v56Gd7Gcyx2ofZ8Jh88D72Ecy8BPFk+XspmyV9I5sFa/NcN0NOzqR+sPk0d+dwBnZBnWg/08PWHdvotjFm6rnbLjPmB2kj9B/764Aczbluw9wja6l3XnTRqoy7mccT81mr2vIyllMZdDoG31Dgg6zTt38gpgIsf2GbZWw1EvhoOOXutrHGojycF3JnR6ETL2fyOq6Pyo6Fiq6LSr5hCt8GzOWgiKPnOFRA3kahCF+bmIxAI6tvoXNyhWPwC2G+C0Dalilesq2hRthiIVFqhMN1SkCvd0sCSK4rzKc+OIaDlAYbYv0tnstRiunhW+jd8K1sksS9VuNrsOcC6fVJypPDdW5KOkFe0zlefuaYWydoriTOW4MakdSvNIaZXrKvJQnilIq1yXhAlGW6E8sPOU2IKXjeL4w19GXEgqF0Zf/gAAAABJRU5ErkJggg==)}.medal-section .action-item.medal{background-size:cover;border:0}.medal-section .action-item{display:inline-block;margin:0 2px;font-size:12px;color:#fff;line-height:14px;text-align:center;border-radius:2px;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.dialog-ctnr.medal{z-index:999;padding:10px 14px 10px 16px;position:absolute;bottom:100px;left:-1px;width:302px}.dialog-ctnr{padding:16px;z-index:699}.medal-ctnr{width:268px}.title{font-weight:400;font-size:18px;margin:0;color:#23ade5;line-height:20px}.medal-search{width:110px;margin-left:3px;position:relative;line-height:20px;top:-1px;font-size:14px;font-weight:100;border:0;padding:0;color:var(--Pi4)}.medal-search::placeholder{color:#dcdcdc}.des{cursor:pointer;color:#666;height:20px;display:flex;align-items:center}.des>.svg-icon{width:14px;height:14px;font-size:14px;background-position:0 -6em;margin-right:5px}.des>span.pointer{line-height:14px}.des>.svg-icon.checkbox-selected{background-position:0 -7em}.qs-icon{width:14px;height:14px;background-size:100%;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAAAXNSR0IArs4c6QAAA79JREFUSA29lk1IVFEYhpsZf0AwDDc5RlJBYepK+rHQFhUutaCdiyL8w5JWkijlIjNISBrTUYha2MZAjBZRmEERGa1CSwqysrSVCw2DGNGe93LP5TreOzOL8MC55zvf+37fe/7uuTewJYXS0NBQvLa2Vk0th54fCATCCqM/TzNH/xV1NBqNTsmfqAQSgfX19VUk7YRTRMIp7KfYs9gSkqCEd9KvxC7G/oDdNjAw8Ei4V/EUrKurU5IhkhwmaIDaMzg4+MUrgfERswf7ErWe2Alia4iZNbhpNwiyfEchj1CnIZ1PJmQSmdYWvotoIfU0y/zaYGrXCdpiz/HfQ7AZsZib3NLSkr24uKhZl5Asd3V19XMoFJro7+//5OYhmk4/Aucs9bhb1BG0l/EdxBH2oNGdQDb7WcEgHmDuoC6T6Df97bSr9O9kZ2e3dnd3L2M7hZxR8FPwDpjlDRoUYAj7o2ZmfKZtbGw8gX8cznwwGCwJh8NbGVReVlbWNjg3qU1LS0u3Dd/VXiRu2s5tua0Z2qfxIZ7C+D0bHh4OjY2NvRc7MzOzNBKJ/LUiXQ9mEqF7IS0t7WBfX59WySlgOkwSPaPTa82QUXTiiMaLKWp8fFzvXhEz6/ISE4cyqAd7ekituyincktD/iAjKKFVwh430dgkKZJNO2F88W1OTs43+Ui6Kx5T385dpAskiHoVvklO2owXmVMo/w327bsXLh8nd59aBD05yo2OLo7qNB7ldHSDeBbITwBUfQs52gBjGRkZj/1IcKRRrj3Mp264EfwC4/0cuOv4qhl0d29v79d43PTBNft8LWmYat2NBky1Zf+7GHkr8RFebs3St0hDWs576Mv0ARC7CnSZ2slxbybZmg91nVt7qNlZn5t1SIIOy1gGfIXYWxz79gRUB4IblpZmOIdR4CCpGbXELEFNSUwpbY057aE+npWp6TisI1hvmN0fx5PEkIa0JDiKejH35e4kMW74J523bkciW7mlIS2Lx55MUr0u30R5UsaUWxoKMKe0nRE02Bdt0kRwA0lJNkE5lZvrzXptnEBG8BJA37aT7E3ML2FTU9PeWCz2AnyG6+5YR0eHYjwLYuks4zPAEK9OhUhmhjpFNYD6LUi4tCsrK6XE6TUqW1hYyFUSv2Ln2q/chuPMUA7ziwHhPt2LXjO1R10L/oNRe96dNkcDP4eo9y8GoFU29SfKiDLCzftNNKJqOUj6Vl5jifUOWT/CtLr1fwmn5IEV4LN+hMXB165fCQv1eKzbQw/cculLTeL/8qv/D4FH4W+V11VGAAAAAElFTkSuQmCC);cursor:pointer;position:relative;top:1px}.link-radio-button-ctnr{display:inline-block;cursor:default;vertical-align:middle;font-size:0}.footer-line{position:relative;left:-16px;width:300px;border-top:1px solid #f0f0f0;margin-top:3px}.medal-wear-footer{margin-top:10px;font-size:14px;color:#23ade5}.medal-wear-footer .cancel-wear{cursor:pointer}.medal-wear-footer a{color:#23ade5}.medal-wear-footer .right-span{float:right}.medal-wear-footer .arrow-box{width:10px;height:10px;font-size:10px;position:relative;top:2px}");
     // 直播中 头像动画
@@ -67,6 +71,27 @@
                 this.switchBadge(json.my_fans_medal.medal_id);
             }
             this.refreshMedalList(1, assignMedal);
+            if (pinyin) {
+                fetch("https://unpkg.com/pinyin-pro@3.13.0/dist/index.js")
+                    .then(res => res.text(), err => { })
+                    .then(js => {
+                        if (!js) { console.warn("徽章切换增强-启动拼音组件失败"); return; }
+                        try {
+                            js = js.replace("pinyinPro", "biliSwitchBoostPinyinPro");
+                            eval(js);
+                            pinyinPro = window.biliSwitchBoostPinyinPro;
+                            Reflect.deleteProperty(window, 'biliSwitchBoostPinyinPro');
+                            this.backUpMedalWall.forEach(item => {
+                                // 用户名
+                                item.anchor_info.nick_pinyin = pinyinPro.pinyin(item.anchor_info.nick_name, { toneType: 'none', nonZh: 'consecutive', v: true }).replaceAll(" ", "").toLowerCase();
+                                // 粉丝牌
+                                item.medal.medal_pinyin = pinyinPro.pinyin(item.medal.medal_name, { toneType: 'none', nonZh: 'consecutive', v: true }).replaceAll(" ", "").toLowerCase();
+                            });
+                        } catch (error) {
+                            console.warn("徽章切换增强-启动拼音组件错误", error);
+                        }
+                    });
+            }
         },
         mounted: function () {
             document.querySelector("#medal-selector").onclick = () => {
@@ -94,7 +119,7 @@
                 if (wearing && this.currentlyWearing.medal.medal_id != wearing.medal.medal_id) {
                     this.currentlyWearing = wearing;
                 }
-                if (this.name != GM_getValue(`operator-${my_id}`) && this.fansMedalInfo.my_fans_medal.medal_id != wearing.medal.medal_id) {
+                if (wearing && this.name != GM_getValue(`operator-${my_id}`) && this.fansMedalInfo.my_fans_medal.medal_id != wearing.medal.medal_id) {
                     this.needSwitch = true;
                 } else {
                     this.needSwitch = false;
@@ -148,6 +173,11 @@
                         medal_id: 0
                     }
                 },
+                recentAward: {
+                    medal: {
+                        medal_id: 0
+                    }
+                },
                 autoSwitch: GM_getValue(`autoSwitch-${my_id}`, false),
                 needSwitch: false,
                 panelStatus: false,
@@ -164,6 +194,7 @@
                 medalWall: [],
                 debounce: {},
                 search: "",
+                label: "",
             }
         },
         watch: {
@@ -192,14 +223,31 @@
             },
             autoSwitch(val) {
                 GM_setValue(`autoSwitch-${my_id}`, val);
+                if (val) {
+                    let cRoomMedal = this.fansMedalInfo.my_fans_medal.medal_id;
+                    if (cRoomMedal != 0) {
+                        this.switchBadge(cRoomMedal, this.medalWallIndex.indexOf(cRoomMedal));
+                        this.needSwitch = false;
+                    }
+                }
             },
             search(val) {
                 clearTimeout(this.debounce["search"]);
                 let vm = this;
                 this.debounce["search"] = setTimeout(function () {
                     if (val) {
+                        val = val.toLowerCase().trim();
                         vm.medalWall = vm.backUpMedalWall.filter((item) => {
-                            return item.medal.medal_name.includes(val) || item.anchor_info.nick_name.includes(val);
+                            if (item.medal.medal_name.toLowerCase().includes(val) || item.anchor_info.nick_name.toLowerCase().includes(val)) {
+                                item.score = 2;
+                                return true;
+                            }
+                            if (!pinyinPro) { return false; }
+                            if (item.medal.medal_pinyin.includes(val) || item.anchor_info.nick_pinyin.includes(val)) {
+                                item.score = 1;
+                                return true;
+                            }
+                            return false;
                         });
                         vm.medalWall.sort(vm.sort);
                         vm.pageInfo.isLastPage = true;
@@ -232,7 +280,7 @@
                 }
                 warn("获取当前佩戴失败：", json.message);
             },
-            async getFansMedalInfo(uid, callback) {  // 用来获取是否拥有指定房间粉丝牌
+            async getFansMedalInfo(uid, callback) {  // 用来获取是否拥有指定用户的粉丝牌
                 let muid = undefined;
                 if (!uid) {
                     muid = uid = await ROOM_INFO_API.getUid();
@@ -265,19 +313,36 @@
                                     刷新当前佩戴的徽章
                                     special_list的内容不会超过3条，所以两次循环无所谓
                                 */
-                                if (page == 1 && assignMedal) {
+                                if (page == 1 && assignMedal) {     // 只有第一页special_list才会有值
                                     // 防止在其他地方取消牌子后插件无反应
                                     this.currentlyWearing = { medal: { medal_id: 0 } };
-                                    for (let item of json.data.special_list) {
-                                        if (item.medal.wearing_status) {
-                                            this.currentlyWearing = item;
-                                            break;
-                                        }
+                                }
+                                for (let item of json.data.special_list) {
+                                    // 抓取当前佩戴
+                                    if (assignMedal && item.medal.wearing_status) {
+                                        this.currentlyWearing = item;
+                                        continue;
+                                    }
+                                    // 抓取最近获取
+                                    if (item.superscript && item.superscript.type == 2) {
+                                        this.recentAward = item;
+                                        continue;
                                     }
                                 }
+
+                                this.label = Math.random() * 1000000 >> 0;
                                 // 合并列表并排序
                                 let list = [].concat(json.data.list, json.data.special_list);
                                 list.forEach((item) => {
+                                    // 添加标识
+                                    item.label = this.label;
+                                    // 解析拼音
+                                    if (pinyinPro) {
+                                        // 用户名
+                                        item.anchor_info.nick_pinyin = pinyinPro.pinyin(item.anchor_info.nick_name, { toneType: 'none', nonZh: 'consecutive', v: true }).replaceAll(" ", "").toLowerCase();
+                                        // 粉丝牌
+                                        item.medal.medal_pinyin = pinyinPro.pinyin(item.medal.medal_name, { toneType: 'none', nonZh: 'consecutive', v: true }).replaceAll(" ", "").toLowerCase();
+                                    }
                                     let index = this.medalWallIndex.indexOf(item.medal.medal_id);
                                     if (index >= 0) {
                                         this.$set(this.medalWall, index, item);
@@ -293,6 +358,7 @@
                                     }
                                 });
                                 this.medalWall.sort(this.sort);
+                                this.backUpMedalWall.sort(this.sort);
                                 GM_setValue(`medalWall-${my_id}`, this.backUpMedalWall);
                                 // 保存页面数据
                                 this.pageInfo.loading = false;
@@ -335,9 +401,17 @@
                         this.currentlyWearing = result;
                     } else {
                         console.warn("徽章列表内找不到对应的徽章");
-                        this.getCurrentWear();
+                        await this.getCurrentWear();
                     }
                 }
+                // 佩戴时更新为最新状态
+                // todo 现有接口不能更新 头像、直播状态
+                // if (this.currentlyWearing.label != this.label) {
+                //     this.getFansMedalInfo(this.currentlyWearing.medal.target_id, (data) => {
+                //         this.medalWall[index].label = this.label;
+                //         this.$set(this.medalWall[index], "medal", data.my_fans_medal);
+                //     });
+                // }
                 // 仅主动切换才保存操作人
                 GM_setValue(`operator-${my_id}`, this.name);
             },
@@ -369,7 +443,7 @@
                     this.debounce["panel"] = setTimeout(() => {
                         this.debounce["panel"] = null;
                         // 临时处理，防止第二次打开后未翻页脏数据
-                        this.medalWall = this.medalWall.slice(0, 50);
+                        this.medalWall = this.backUpMedalWall.slice(0, 50);
                         this.search = "";
                     }, 2000);
                 } else {
@@ -403,35 +477,41 @@
                 }
             },
             sort(a, b) {
-                // 等级排序
-                let count_a = a.medal.level * 15000000 + a.medal.intimacy;
-                let count_b = b.medal.level * 15000000 + b.medal.intimacy;
-                // 当前房间             置顶
+                // 搜索匹配度
+                if (this.search && (a.score || b.score) && a.score != b.score) {
+                    return a.score > b.score ? -1 : 1;
+                }
+                // 当前房间
                 if (a.medal.target_id == this.fansMedalInfo.my_fans_medal.target_id) {
-                    count_a = Number.MAX_VALUE;
+                    return -1;
                 } else if (b.medal.target_id == this.fansMedalInfo.my_fans_medal.target_id) {
-                    count_b = Number.MAX_VALUE;
+                    return 1;
                 }
-                // 当前佩戴             第二
-                else if (a.medal.wearing_status) {
-                    count_a = Number.MAX_VALUE - 1;
-                } else if (b.medal.wearing_status) {
-                    count_b = Number.MAX_VALUE - 1;
+                // 当前佩戴 
+                if (a.medal.medal_id == this.currentlyWearing.medal.medal_id) {
+                    return -1;
+                } else if (b.medal.medal_id == this.currentlyWearing.medal.medal_id) {
+                    return 1;
                 }
-                // 最近获得 or 其他     第三
-                else if (a.superscript) {
-                    count_a = Number.MAX_VALUE - a.superscript.type;
-                } else if (b.superscript) {
-                    count_b = Number.MAX_VALUE - b.superscript.type;
+                // 最近获得、其他特殊情况
+                if (a.medal.medal_id == this.recentAward.medal.medal_id) {
+                    return -1;
+                } else if (b.medal.medal_id == this.recentAward.medal.medal_id) {
+                    return 1;
                 }
-                // 灰色牌子处理         置尾
-                else if (a.medal.is_lighted == 0) {
-                    count_a = +a.medal.level;
+                // 灰色牌子
+                if (a.medal.is_lighted == 0) {
+                    return 1;
                 } else if (b.medal.is_lighted == 0) {
-                    count_b = +b.medal.level;
+                    return -1;
                 }
-                return count_b - count_a;
-            }
+                // 等级排序
+                if (a.medal.level != b.medal.level) {
+                    return b.medal.level - a.medal.level;
+                }
+                // 经验排序
+                return b.medal.intimacy - a.medal.intimacy;
+            },
         },
         template: `
             <div class="border-box dialog-ctnr common-popup-wrap medal a-scale-in" v-show="panelStatus" @mouseleave="togglePanel">
@@ -448,7 +528,7 @@
                             <span class="pointer v-middle">自动更换</span>
                         </div>
                         <transition-group name="medal-list" tag="div" class="medal-wear-body" ref="medalList">
-                            <div class="medal-item" v-for="(item,index) in medalWall" 
+                            <div class="medal-item" v-for="(item,index) in medalWall" :class="{ outdated: item.label != label }"
                                 :key="item.medal.medal_id" :data-uid="item.medal.target_id" :data-rid="item.room_info.room_id" 
                                 :data-uname="item.anchor_info.nick_name.toLowerCase()" :data-mname="item.medal.medal_name.toLowerCase()"
                                 @click="currentlyWearing.medal.medal_id == item.medal.medal_id ? takeOff() : switchBadge(item.medal.medal_id,index)">
@@ -503,7 +583,7 @@
                                                     当前房间
                                                 </div>
                                                 <div class="content-icon dp-i-block" :key="'content'"
-                                                    v-else-if="item.superscript != null">
+                                                    v-else-if="item.medal.medal_id == recentAward.medal.medal_id">
                                                     {{item.superscript.content}}
                                                 </div>
                                             </transition>
