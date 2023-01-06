@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.2.0
+// @version      1.2.1
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -330,7 +330,9 @@
                                     }
                                 }
 
-                                this.label = Math.random() * 1000000 >> 0;
+                                if (page == 1) {
+                                    this.label = Math.random() * 1000000 >> 0;
+                                }
                                 // 合并列表并排序
                                 let list = [].concat(json.data.list, json.data.special_list);
                                 list.forEach((item) => {
