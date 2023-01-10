@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         B站直播通知
-// @version      0.2.1
+// @version      0.2.2
 // @description  需要有至少一个b站页面开在后台，通常提醒延迟不超过3分钟
 // @author       Pronax
 // @match        https://*.bilibili.com/*
@@ -14,6 +14,8 @@
 // @noframes
 // ==/UserScript==
 
+// todo 更新时统一销毁通知
+
 (function () {
     'use strict';
 
@@ -24,12 +26,13 @@
     };
     // 单位都是ms
     const TITLE_ICON = "✔ ";
-    const NOTIFACTION_TIMEOUT = 8000;
-    const CONSUMER_LOOP_TERM = 90000;
+    const NOTIFACTION_TIMEOUT = 15000;      // 并不一定会使用
+    const CONSUMER_LOOP_TERM = 60000;
     const RETRY_LOOP_TERM = CONSUMER_LOOP_TERM * 0.75;
     const LIST_EXPIRE_TIME = CONSUMER_LOOP_TERM * 10.0;
     const CONSUMER_EXPIRE_TIME = CONSUMER_LOOP_TERM * 1.5;
 
+    var notificationList = [];
     var master = GM_getValue("master");
     // list存的都是uid
     var onlineList = getList("onlineList");
@@ -47,6 +50,7 @@
         });
 
     window.addEventListener('beforeunload', (event) => {
+        // 注销
         if (master.name == TAB_DETAIL.name) {
             GM_deleteValue("master");
         }
@@ -76,10 +80,11 @@
 
     async function observer() {
         if (master == undefined || Date.now() - master.lastHeartbeat > CONSUMER_EXPIRE_TIME) {
+            let diff = master ? Date.now() - master.lastHeartbeat : 0;   // 防止被后续的选举行为刷新
             electSelf();
             await sleep(1000);
             if (master.name == TAB_DETAIL.name) {
-                let diff = Date.now() - master.lastHeartbeat;
+                // 根据时间判断是否初始化列表，小于1500用于防止反复开关页面的防抖
                 if (diff > LIST_EXPIRE_TIME || diff < 1500) {
                     leader(true);
                 } else {
@@ -119,13 +124,13 @@
                     if (result.code == result.message) {
                         if (!result.data.items) { return; }
                         let newList = new Set();
-                        let count = 0;
+                        // let count = 0;
                         for (let item of result.data.items) {
                             if (!(isInit || onlineList.has(item.uid) || blockList.has(item.uid))) {
                                 console.log("发送" + item.uname + "的开播通知");
-                                setTimeout(() => {
-                                    notify(item.uid, item.uname, item.title, item.face, item.link);
-                                }, NOTIFACTION_TIMEOUT * Math.floor(count++ / 3));
+                                // setTimeout(() => {
+                                notify(item.uid, item.uname, item.title, item.face, item.link);
+                                // }, NOTIFACTION_TIMEOUT * Math.floor(count++ / 3));
                             }
                             newList.add(item.uid);
                         }
@@ -165,10 +170,6 @@
         });
     }
 
-    function election(msg) {
-        master = msg.value;
-    }
-
     function sync(msg) {
         clearCountdown(temp_variable.timeout);
         if (!msg.remote) {
@@ -197,6 +198,12 @@
         }
     }
 
+    // 方法通过eval调用
+    function election(msg) {
+        master = msg.value;
+    }
+
+    // 方法通过eval调用
     function modify(msg) {
         eval(`${msg.variable}.${msg.action}(${msg.value})`);
     }
@@ -210,18 +217,47 @@
     }
 
     function notify(roomid, nickname, roomname, avatar, link) {
-        GM_notification({
-            text: nickname + "正在直播",
-            title: roomname,
-            image: avatar,
-            timeout: NOTIFACTION_TIMEOUT,
-            onclick: () => {
-                GM_openInTab(link, {
-                    "active": true,
-                    "insert": true,
-                });
-            },
-        });
+        // 因为Notification需要主动授权，所以在未授权时会使用GM发送提醒
+        if (Notification.permission != "granted") {
+            console.log("油猴");
+            Notification.requestPermission();
+            /** 
+             * 2022年4月6日 在本人电脑上测试
+             * 环境：TamperMonkey 4.14 + Chrome 100.0.4896.75
+             * GM_notification在chrome上会表现为一个和alert很相似的弹框
+             * 和Notification构造出的提示相差甚远，无法作为提示使用
+             * 故依旧使用原生Notification进行提示
+             * 2022年7月15日 tampermonkey产生的通知在timeout以后会自动清除
+             * 通知中心不会留下记录
+             */
+            GM_notification({
+                text: nickname + "正在直播",
+                title: roomname,
+                image: avatar,
+                timeout: NOTIFACTION_TIMEOUT,
+                onclick: () => {
+                    console.log(link);
+                    GM_openInTab(link, false);
+                },
+            });
+        } else {
+            console.log("原生");
+            let obj = new Notification(roomname, {
+                dir: "ltr",
+                lang: "zh-CN",
+                body: nickname + "正在直播",
+                tag: roomid,
+                icon: avatar,
+                silent: false,
+            });
+            obj.onclick = (e) => {
+                e.preventDefault(); // prevent the browser from focusing the Notification's tab
+                window.open(link, '_blank');
+                setTimeout(obj.close.bind(obj), 1000);
+            }
+            // 集中通知中心记录，下一次更新时统一清空
+            // notificationList.push(obj);
+        }
     }
 
     function heartbeat(timestamp = Date.now()) {
