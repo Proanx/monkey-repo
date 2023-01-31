@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.2.3
+// @version         0.2.4
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -68,13 +68,14 @@
     // 领取按钮
     GM_addStyle(".draw-red-packet-btn{position:absolute;width:44px;height:18px;margin-top:8px;color:#f9dc8b;background:#ed5959;border-radius:4px;text-align:center;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;display:flex;justify-content:center;align-items:center;top:87px}.draw-red-packet-btn.disabled{color: #fff;background:#aaa;}");
 
-    var notice;
-    var timeout;
-    var giftCount = 0;
-    var unpacking = false;
-    // var giftList = new Map();
+    let notice;
+    let timeout;
+    let giftCount = 0;
+    let unpacking = false;
+    // let giftList = new Map();
+    let awards = {};
 
-    var formData = new FormData();
+    let formData = new FormData();
     formData.set("visit_id", "");
     formData.set("jump_from", "");
     formData.set("session_id", "");
@@ -119,7 +120,7 @@
         fetch(`https://api.live.bilibili.com/xlive/lottery-interface/v1/lottery/getLotteryInfoWeb?roomid=${ROOM_ID}`)
             .then(res => res.json())
             .then(async json => {
-                if (json.data.popularity_red_pocket && json.data.popularity_red_pocket[0].user_status == 2) {
+                if (json.data.popularity_red_pocket && json.data.popularity_red_pocket[0].user_status == 2 && json.data.popularity_red_pocket[0].end_time > json.data.popularity_red_pocket[0].current_time) {
                     let message = {
                         "data": json.data.popularity_red_pocket[0]
                     };
@@ -235,6 +236,7 @@
                                 GM_setValue(`limitWarning-${Setting.UID}`, Setting.Beijing_date);
                                 resolve(false);
                                 addDrawBtn(message);
+                                unfollow();
                                 return;
                             case 1009114:       // 已抽奖
                                 removeDrawBtn();
@@ -315,7 +317,9 @@
                             .then(res => res.json())
                             .then(json => {
                                 if (json.code == json.message) {
-                                    showMessage("已取消关注", "warning", "提示", false);
+                                    let unfollow = awards["unfollow"] || {};
+                                    unfollow.notice && unfollow.notice.remove();
+                                    unfollow.notice = showMessage("已取消关注", "warning", "提示", false);
                                 }
                                 return r(json.code != json.message);
                             });
@@ -325,6 +329,30 @@
     }
 
     function redPacketWinner(message) {
+        // let tempMsg = {
+        //     "cmd": "POPULARITY_RED_POCKET_WINNER_LIST",
+        //     "data": {
+        //         "lot_id": 7561546,
+        //         "total_num": 10,
+        //         "winner_info": [
+        //             [
+        //                 165262315,
+        //                 "火灭PKK",
+        //                 4137534,
+        //                 30971
+        //             ],
+        //         ],
+        //         "awards": {
+        //             "31225": {
+        //                 "award_type": 1,
+        //                 "award_name": "牛哇",
+        //                 "award_pic": "https://s1.hdslb.com/bfs/live/b8a38b4bd3be120becddfb92650786f00dffad48.png",
+        //                 "award_big_pic": "https://i0.hdslb.com/bfs/live/3b74c117b4f265edcea261bc5608a58d3a7c300a.png",
+        //                 "award_price": 100,
+        //             },
+        //         },
+        //     }
+        // }
         removeDrawBtn();
         let follow = unpacking;
         unpacking = false;
@@ -332,10 +360,13 @@
         for (let winner of message.data.winner_info) {
             if (Setting.UID == winner[0]) {
                 // let giftDetail = giftList.get(winner[3]);
-                showMessage(`
+                let award = awards[winner[3]] || {};
+                award.count = (award.count >> 0) + 1;
+                award.notice && award.notice.remove();
+                award.notice = showMessage(`
                     <div class="gift-frame img gift-${winner[3]}-40" height="40" style="width:40px;height:40px;display:inline-block;"></div>
                     <span>
-                        获得：${message.data.awards[winner[3]].award_name}
+                        获得：${message.data.awards[winner[3]].award_name}${award.count > 1 ? " ×" + award.count : ""}
                     </span>
                     <br>
                     <span>
@@ -343,9 +374,12 @@
                         <span class="coin-type dp-i-block v-middle none-select">
                             <i class="currency-icon" style="background-image: url(&quot;data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAABDBJREFUaAXVWt1rFFcU/92Z3Z3sJiHRxBhNRe0ihSLSF20fBBWDL/og2Pf+A774IKGU0gXf2jcf/RMsQkXwg4IgVKxUUBB9SJssRtGQaLr52J1sZmduz93qujt752Nn713WE8jOPeeee36/O+d+zQzwiQtThZ8/K2QwZBxAzctGtmlhDVP4h7GCF1k3okIqwh7LzDmBL+Iv1NxDsRyqVKvIrtH/b2PVD6lkhNjimxaMw+A8HvgPrXJ+jhcLox+KSX/VEPC84UQA0hhK5NfkpIZAU4O9vow1Bji/auLN822B4KpsBOCB5kDDFrbz14VNqd3LcEx9v8IYC204dBbi85e+ANzLFOAo5XhOGkinkrES9ctNDOICmywsyUIFEuALl/Jw3CfUs13nqSxwRzrGijRaDrGJwobfLziFHPdnZeANC8hM+GO3l70twFmlsL6s4nw/1tlFcvjJ7xRMQKSNKjEHgaGD8Vuz54HyLNVvSX8pnpBZiMfosviYOqqZ/RzI7vO7SPGEEPD797icy8cK2L8EWBpgA5Ek+peAgG6Y/UHAfvMrSn8ew9bynUhAnVbQfgectafYXPkD3KvCeXe3U3yR9bUS4LV1VJZvNkAY1njjWtWFVgLlpRvw3I+LkpGZVIW70Y42Altrj+Fs/N0IJC4Ma2dLWUVBCwGvtorK0u02fIa1q03XrUIDAY7K4nUatLSv8ckncQeqq4/gVIo+6LQmMRMs0+eD2HNWYC//3gZeKAxLbGXU33CFLXKUF3+j1HHkBDTMQPWOkUZLoKz++wA1+2Wgp2GJKdSDV5mjFfk2PLs9zQKdQwxh54EQt1YTdzdgvw1fZZ3SQ5QeToO7lbozM3MYPXxL5FZrYx2WFBGw6cjsNkIbBIqLv6aZSIyPZmHikGPQjrNLUULAyOzA8GffQcz/qYHdMGi2WV+4gtrmYiC8XH6GbN0PQSUEBMpUbp/4aYgnzrYBYk2cQXqb9IQY4BGs7r4LZG1zh/ZAtsxS307k9l+Q2pIotRAI6n3xDGcw/wMg8l+RaCJQksKzJs8hNXpEakuq1EOABrNfzIEpZPee96u7LveEAAND7sCPlDrR7z46ZaSHgG8GssaOIzX8VafYYtXXTsCkNSE7cToWmCSV9BBw1+pYROoM7jqrZMUNIqeFQHroS4JOTwfHT8K0poJiK9ErW4mb0WTHp5EdO0GnmOgHU81+Sa613IE6EBXgefRbWH0EknRnsw9tR+jQ0KyRXvcvAcm5WsYghABbljn0RGe/AOw5fygpnrBBfJ9aoDlQgdTK9MbleXRD4gAktiHvT20tDgwCT5uEEZihZyGnlLyd5PRtgejVxMIWMIJfZO6BKcTyhVmk8DWRuEfzYftTKllrqnWMlSn+NZjpb9hY4f/V0ReD+crSYv1jjlepHVKjLiWvcezBYtQXLf8BGOoetC6LwK8AAAAASUVORK5CYII=&quot;);"></i>
                         </span>
-                        <span class="text">${Math.round(message.data.awards[winner[3]].award_price / 100)}</span>
+                        <span class="text">${Math.round(message.data.awards[winner[3]].award_price / 100) * award.count}</span>
                     </span>
                 `, "success", "中奖啦！", false);
+                if (award.count == 1) {
+                    awards[winner[3]] = award;
+                }
                 giftCount++;
                 break;
             }
