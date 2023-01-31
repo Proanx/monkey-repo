@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.17
+// @version      0.2.18
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -26,8 +26,12 @@
     //  无痕 -> 不发送弹幕、点赞一次、挂观看直到1500亲密度满（副作用：7天内没有任何互动的直播间牌子会变灰）
     //  常亮 -> 牌子灰了时发送弹幕续牌，其余时间同 无痕 的行为模式相同
     //  低保 -> 牌子灰了时发送弹幕续牌，其余时间不做任何事（副作用：每日首次发送弹幕会有100亲密度）
-    const 打卡模式 = "默认";
+    const 全局打卡模式 = "默认";
 
+    // 根据uid自定义打卡模式
+    let customMode = {
+        // 示例：208259: "低保",
+    }
     // uid白名单   与黑名单同时配置时黑名单优先
     let whiteList = [
         // 只有在名单内的人才会打卡
@@ -226,6 +230,7 @@
                     return !(this.danmu || this.like || this.watch || this.share);
                 }
             }
+            let 打卡模式 = customMode[medal.uid] || 全局打卡模式;
 
             switch (打卡模式) {
                 case "常亮":
@@ -425,6 +430,7 @@
                     }
                     let count = +item.checkIn.count;
                     let returnValue = false;
+                    // 10203: 弹幕表情发送失败（不存在）
                     // 10024: 拉黑
                     // 10030: 弹幕发送过快
                     // 10031: 弹幕发送过快
@@ -437,14 +443,9 @@
                                 item.checkIn.count = 3;
                                 returnValue = true;
                                 break;
-                            } else if (result.msg == "k") {
-                                if (count == 0) {
-                                    // 有些房间把打卡设置为了屏蔽词
-                                    customDanmu[uid] = msg.replace("打卡", "");
-                                } else {
-                                    // 表情包-泪目
-                                    customDanmu[uid] = "official_103";
-                                }
+                            } else if (result.msg == "k" || result.msg[0] == "f") {    // 敏感词
+                                // 表情包-泪目
+                                customDanmu[uid] = "official_103";
                                 count -= 0.3; // 给多几次机会
                             }
                             item.checkIn.count = ++count;
@@ -455,6 +456,12 @@
                         case -111:
                             // 不应该出现
                             console.warn("token过期");
+                            break;
+                        case 10203:
+                            console.error(`自动续牌-用户 ${item.name}（${uid}）的自定义表情 ${customDanmu[uid]} 已失效！`);
+                            customDanmu[uid] = "official_103";  // 表情包-泪目
+                            item.checkIn.count = ++count;
+                            item.checkIn.failedReason = result.code;
                             break;
                         case 10024:
                         // 拉黑了也可以挂直播
