@@ -17,13 +17,16 @@
 // @require         https://greasyfork.org/scripts/439903-blive-room-info-api/code/blive_room_info_api.js?version=1037039
 // ==/UserScript==
 
+// todo 关闭得奖提示后，下次发送的得奖提示会继续使用之前的获奖数量（得奖提示关闭后应该清空计数）
+// todo 活动直播间红包第二次不会重新抽取
+
 ; (async function () {
 
     if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
 
     // 抢红包门槛，只有红包价值大于等于门槛的时候才会抢
     // 单位是电池
-    const doorSill = 0;
+    const doorSill = 30;
     // 你可以在这里枚举不想抽取的红包价值，单位是电池
     // e.g. const goldBlockEnumList = [16,20,100];
     const goldBlockEnumList = [];
@@ -66,7 +69,7 @@
     // 新版红包CSS
     GM_addStyle(".join .join-main .join-envelope-sponsor .sponsor-award .award-item{width:70px!important;height:70px!important}.join .join-main .join-envelope-sponsor .sponsor-award .award-item .award-item-bg{justify-content:center!important}.join .join-main .join-envelope-sponsor .sponsor-award .award-item .award-item-num{margin-top:0!important;position:relative;top:-3px}.join .join-main .join-envelope-sponsor .sponsor-award .award-item .award-item-img{width:50px!important;height:50px!important}");
     // 领取按钮
-    GM_addStyle(".draw-red-packet-btn{position:absolute;width:44px;height:18px;margin-top:8px;color:#f9dc8b;background:#ed5959;border-radius:4px;text-align:center;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;display:flex;justify-content:center;align-items:center;top:87px}.draw-red-packet-btn.disabled{color: #fff;background:#aaa;}");
+    GM_addStyle(".draw-red-packet-btn{margin:2px 10px 0;color:#f9dc8b;padding:2px 0;background:#ed5959dd;border-radius:4px;text-align:center;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;display:flex;justify-content:center;align-items:center}.draw-red-packet-btn.disabled{color:#fff;background:#aaaa}");
 
     let notice;
     let timeout;
@@ -336,21 +339,21 @@
         //         "total_num": 10,
         //         "winner_info": [
         //             [
-        //                 165262315,
-        //                 "火灭PKK",
-        //                 4137534,
-        //                 30971
-        //             ],
+        //                 383148522,
+        //                 "故意de",
+        //                 5407185,
+        //                 31212
+        //             ]
         //         ],
         //         "awards": {
-        //             "31225": {
+        //             "31212": {
         //                 "award_type": 1,
-        //                 "award_name": "牛哇",
-        //                 "award_pic": "https://s1.hdslb.com/bfs/live/b8a38b4bd3be120becddfb92650786f00dffad48.png",
-        //                 "award_big_pic": "https://i0.hdslb.com/bfs/live/3b74c117b4f265edcea261bc5608a58d3a7c300a.png",
-        //                 "award_price": 100,
-        //             },
-        //         },
+        //                 "award_name": "打call",
+        //                 "award_pic": "https://s1.hdslb.com/bfs/live/461be640f60788c1d159ec8d6c5d5cf1ef3d1830.png",
+        //                 "award_big_pic": "https://i0.hdslb.com/bfs/live/9e6521c57f24c7149c054d265818d4b82059f2ef.png",
+        //                 "award_price": 500
+        //             }
+        //         }
         //     }
         // }
         removeDrawBtn();
@@ -376,7 +379,12 @@
                         </span>
                         <span class="text">${Math.round(message.data.awards[winner[3]].award_price / 100) * award.count}</span>
                     </span>
-                `, "success", "中奖啦！", false);
+                `, "success", "中奖啦！", false, (p) => {
+                    // 关闭提示框时清空礼物计数
+                    // alert(`清空 ${message.data.awards[winner[3]]} 的计数`);
+                    // console.log(JSON.stringify(award));
+                    // award.count = 0;
+                });
                 if (award.count == 1) {
                     awards[winner[3]] = award;
                 }
@@ -395,7 +403,7 @@
         }
     }
 
-    function showMessage(msg, type = "info", title, time = 3000, pos = 'bottomLeft') {
+    function showMessage(msg, type = "info", title, time = 3000, closeCallback) {
         const TITLE = {
             "info": "提示",
             "error": "错误",
@@ -410,7 +418,17 @@
             text: msg,
             timeout: time ? Math.round(time / 100) : time,
             type: type,
-            position: pos
+            position: "bottomLeft",
+            callbacks: {
+                // beforeShow: [],
+                // onShow: [],
+                // afterShow: [],
+                onClose: [closeCallback],
+                // afterClose: [],
+                // onClick: [],
+                // onHover: [],
+                // onTemplate: []
+            }
         }).show();
     }
 
