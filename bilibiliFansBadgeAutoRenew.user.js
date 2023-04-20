@@ -264,7 +264,7 @@
                         if (medal.isNotWatched) {
                             action.watch = true;
                         }
-                    } else if (medal.isNotLighted) {
+                    } else if (medal.isNotCheckIn && medal.isNotLighted) {
                         action.danmu = true;
                     }
             }
