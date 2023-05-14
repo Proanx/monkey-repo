@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.2.5
+// @version         0.2.6
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -26,7 +26,7 @@
 
     // 抢红包门槛，只有红包价值大于等于门槛的时候才会抢
     // 单位是电池
-    const doorSill = 30;
+    const doorSill = 0;
     // 你可以在这里枚举不想抽取的红包价值，单位是电池
     // e.g. const goldBlockEnumList = [16,20,100];
     const goldBlockEnumList = [];
