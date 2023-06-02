@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.2.7
+// @version         0.2.8
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -452,13 +452,13 @@
 
     async function getFollowStatus(uid) {
         return new Promise((r, j) => {
-            /* attribute: 0-正常 128-拉黑 2-关注 1-悄悄关注  */
+            /* attribute: 0-未关注 128-拉黑 2-关注 1-悄悄关注 6-互相关注  */
             fetch(`https://api.bilibili.com/x/relation?fid=${uid}`, {
                 "credentials": "include"
             })
                 .then(res => res.json())
                 .then(json => {
-                    r(json.data.attribute == 1 || json.data.attribute == 2);
+                    r(json.data.attribute != 0 && json.data.attribute != 128);
                 });
         });
     }
