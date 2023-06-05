@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.2.2
+// @version      1.2.3
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -273,6 +273,10 @@
             }
         },
         methods: {
+            /* 将10进制数字转为16进制字符串，不足6位时自动补充 */
+            padToHex(str) {
+                return str.toString(16).padStart(6, 0);
+            },
             async sleep(ms) {
                 return new Promise(r => {
                     setTimeout(() => {
@@ -485,12 +489,12 @@
                 if (this.currentlyWearing.medal.medal_id != 0) {
                     selector.innerHTML = `
                         <div class="v-middle fans-medal-item medal-item-margin"
-                            style="border-color:#${this.currentlyWearing.medal.medal_color_border.toString(16)}">
+                            style="border-color:#${this.padToHex(this.currentlyWearing.medal.medal_color_border)}">
                             <div class="fans-medal-label"
-                                style="background-image:linear-gradient(45deg,#${this.currentlyWearing.medal.medal_color_start.toString(16)},#${this.currentlyWearing.medal.medal_color_end.toString(16)})">
+                                style="background-image:linear-gradient(45deg,#${this.padToHex(this.currentlyWearing.medal.medal_color_start)},#${this.padToHex(this.currentlyWearing.medal.medal_color_end)})">
                                 <span class="fans-medal-content">${this.currentlyWearing.medal.medal_name}</span>
                             </div>
-                            <div class="fans-medal-level" style="color:#${this.currentlyWearing.medal.medal_color_start.toString(16)}">${this.currentlyWearing.medal.level}</div>
+                            <div class="fans-medal-level" style="color:#${this.padToHex(this.currentlyWearing.medal.medal_color_start)}">${this.currentlyWearing.medal.level}</div>
                         </div>
                     `;
                 } else {
@@ -580,13 +584,13 @@
                                     <div class="dp-i-block v-bottom w-100 p-relative">
                                         <div class="medal-content-head">
                                             <div class="fans-medal-item f-right"
-                                                :style="'border-color:#'+(item.medal.medal_color_border.toString(16))">
+                                                :style="'border-color:#'+(padToHex(item.medal.medal_color_border))">
                                                 <div class="fans-medal-label"
-                                                    :style="'background-image:linear-gradient(45deg,#'+(item.medal.medal_color_start.toString(16))+',#'+(item.medal.medal_color_end.toString(16))+')'">
+                                                    :style="'background-image:linear-gradient(45deg,#'+(padToHex(item.medal.medal_color_start))+',#'+(padToHex(item.medal.medal_color_end))+')'">
                                                     <span class="fans-medal-content">{{item.medal.medal_name}}</span>
                                                 </div>
                                                 <div class="fans-medal-level"
-                                                    :style="'color:#'+(item.medal.medal_color_start.toString(16))">
+                                                    :style="'color:#'+(padToHex(item.medal.medal_color_start))">
                                                     {{item.medal.level}}
                                                 </div>
                                             </div>
