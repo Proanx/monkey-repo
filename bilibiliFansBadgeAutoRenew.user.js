@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.2.18
+// @version      0.3.1
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -27,6 +27,11 @@
     //  常亮 -> 牌子灰了时发送弹幕续牌，其余时间同 无痕 的行为模式相同
     //  低保 -> 牌子灰了时发送弹幕续牌，其余时间不做任何事（副作用：每日首次发送弹幕会有100亲密度）
     const 全局打卡模式 = "默认";
+
+    // 粉丝牌打卡顺序
+    // Truthy-倒序-从粉丝牌等级低到高
+    // Falsey-正序-从粉丝牌等级高到低
+    const ascending = true;
 
     // 根据uid自定义打卡模式
     let customMode = {
@@ -150,6 +155,7 @@
     // 运行部分结束
 
     async function main(pageNum = 1) {
+        console.log("上次20级以下亲密度总和", GM_getValue(`intimacy-${Setting.UID} ${today}`));
         today = Setting.Beijing_date;
         if (GM_getValue(`finished-${Setting.UID}`) == today) {
             let tomorrowDiff = (new Date(Setting.Beijing_date).getTime() + 86410000) - Setting.Beijing_ts;
@@ -158,11 +164,32 @@
             console.log(`自动续牌-今日已打卡完毕，北京时间明天0点（当地时间${localeDiff}）会开始下一轮打卡`);
             return;
         };
+        let pageInfo;
+        if (ascending) {
+            pageInfo = await getMedalPageInfo();
+        }
         let result = undefined;
         let unfinished = 0;
+        // 每日最高亲密度总和
+        let totalIntimacy = 0;
         do {
-            console.log(`自动续牌-开始打卡，正在加载第 ${pageNum} 页`);
-            result = await getMedalDetail(pageNum++);
+            if (ascending) {
+                console.log(`自动续牌-开始打卡，倒序加载第 ${pageInfo.nextPage} 页`);
+                result = await getMedalDetail(pageInfo.nextPage--);
+                if (pageInfo.totalPage == pageInfo.nextPage + 1) {  // 第一页的时候把最新获取放进去一起消费
+                    result.list = pageInfo.latest.concat(result.list);
+                }
+            } else {
+                console.log(`自动续牌-开始打卡，正在加载第 ${pageNum} 页`);
+                result = await getMedalDetail(pageNum++);
+            }
+
+            for (let item of result.list) {
+                if (item.wasGuard) { continue; }
+                totalIntimacy += item.intimacy;
+                // console.log(`${item.name}今日亲密度：${item.intimacy}`);
+            }
+
             unfinished += checker(result.list, result.list.length >= 200);
             // 睡一会防止消费未开始直接翻页
             await sleep(1000);
@@ -170,42 +197,80 @@
             await messageQueue.hangingUp("likeInteract");
             await messageQueue.hangingUp("sendDanmu");
         } while (result.hasNext);
+
+        console.log("当前20级以下亲密度总和", totalIntimacy);
+        GM_setValue(`intimacy-${Setting.UID} ${today}`, totalIntimacy);
+
         if (unfinished == 0) {
-            GM_setValue(`finished-${Setting.UID}`, today);
+            if (!拦截请求) {
+                GM_setValue(`finished-${Setting.UID}`, today);
+            }
             let tomorrowDiff = (new Date(Setting.Beijing_date).getTime() + 86410000) - Setting.Beijing_ts;
             setTimeout(main, tomorrowDiff);
             let localeDiff = new Date(Date.now() + tomorrowDiff).toLocaleString("zh-CN");
             console.log(`自动续牌-今日已打卡完毕，北京时间明天0点（当地时间${localeDiff}）会开始下一轮打卡`);
         } else {
-            setTimeout(main, 60 * 1000 * 10);
-            console.log(`自动续牌-预计 ${new Date(Date.now() + 600000).toLocaleTimeString()} 执行下一轮打卡`);
+            let gap = 60 * 1000 * 10;
+            setTimeout(main, gap);
+            console.log(`自动续牌-预计 ${new Date(Date.now() + gap).toLocaleTimeString()} 执行下一轮打卡`);
         }
     }
 
-    // 获取并初始化徽章列表
+    // 获取初始化的徽章列表
     async function getMedalDetail(pageNum = 1) {
+        let data = await getFansMedal(pageNum);
+        // 最近获得、当前房间、当前佩戴会在这个特殊列表内，需要添加到总列表当中
+        let list = [];
+        let ts = new Date().toLocaleTimeString("zh-CN");
+        for (const item of data.list.concat(data.special_list)) {
+            list.push(new Medal(item, ts));
+        }
+        data.page_info.total_number = data.total_number;
+        if (ascending) {
+            list.reverse();
+        }
+        let detail = {
+            list: list,
+            hasNext: ascending ? pageNum > 1 && pageNum <= data.page_info.total_page : pageNum >= 1 && pageNum < data.page_info.total_page,
+            nextPage: ascending ? pageNum - 1 : pageNum + 1,
+            currentPage: data.page_info.current_page,
+        };
+        return detail;
+    }
+
+    // 获取徽章分页详细
+    async function getMedalPageInfo(pageSize = 50) {
+        let data = await getFansMedal(1, 1);
+        let result = {
+            "totalNumber": data.total_number
+        };
+        result["hasMore"] = result["totalNumber"] > pageSize;
+        result["totalPage"] = Math.ceil(result["totalNumber"] / pageSize);
+        result["nextPage"] = result["totalPage"]; // 倒序第一页
+        // 最新获取的一个徽章会被放在special_list中，而且只有访问第一页的时候才会有值，所以这里抓取出来用于倒序时遍历
+        let ts = new Date().toLocaleTimeString("zh-CN");
+        let list = data.special_list.filter(item => item.superscript.type == 2);
+        for (let index = 0; index < list.length; index++) {
+            const element = list[index];
+            list[index] = new Medal(element, ts);
+        }
+        result["latest"] = list;
+        return result;
+    }
+
+    // 获取徽章列表
+    async function getFansMedal(pageNum = 1, pageSize = 50) {
         return new Promise((resolve, reject) => {
-            fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=${pageNum}&page_size=50`, {
+            fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=${pageNum}&page_size=${pageSize}`, {
                 credentials: 'include'
             })
                 .then(response => response.json())
                 .then(json => {
                     if (json.code != json.message) {
-                        console.error(`自动续牌-获取列表失败：页数${pageNum}`, json);
-                        throw new Error("自动续牌-获取列表失败");
+                        console.error(`自动续牌-获取徽章列表失败：页数${pageNum} size${pageSize}`, json);
+                        reject(json);
                     }
-                    // 最近获得、当前房间、当前佩戴会在这个特殊列表内，需要添加到总列表当中
-                    let list = [];
-                    let ts = new Date().toLocaleTimeString("zh-CN");
-                    for (const item of json.data.list.concat(json.data.special_list)) {
-                        list.push(new Medal(item, ts));
-                    }
-                    let detail = {
-                        list: list,
-                        hasNext: pageNum < json.data.page_info.total_page,
-                        nextPage: pageNum + 1,
-                    };
-                    resolve(detail);
+                    resolve(json.data);
                 })
         });
     }
