@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.3.2
+// @version      0.3.3
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -157,7 +157,7 @@
     async function main(pageNum = 1) {
         console.log("上次20级以下亲密度总和", GM_getValue(`intimacy-${Setting.UID} ${today}`));
         today = Setting.Beijing_date;
-        if (GM_getValue(`finished-${Setting.UID}`) == today) {
+        if (GM_getValue(`finished-${Setting.UID}`) == today) {  // 已完成打卡
             let tomorrowDiff = (new Date(Setting.Beijing_date).getTime() + 86410000) - Setting.Beijing_ts;
             setTimeout(main, tomorrowDiff);
             let localeDiff = new Date(Date.now() + tomorrowDiff).toLocaleString("zh-CN");
@@ -184,6 +184,7 @@
                 result = await getMedalDetail(pageNum++);
             }
 
+            // 统计一下亲密度上限
             for (let item of result.list) {
                 if (item.wasGuard) { continue; }
                 totalIntimacy += item.intimacy;
@@ -247,9 +248,9 @@
         result["hasMore"] = result["totalNumber"] > pageSize;
         result["totalPage"] = Math.ceil(result["totalNumber"] / pageSize);
         result["nextPage"] = result["totalPage"]; // 倒序第一页
-        // 最新获取的一个徽章会被放在special_list中，而且只有访问第一页的时候才会有值，所以这里抓取出来用于倒序时遍历
+        // 最新获取和当前佩戴的徽章会被放在special_list中，而且只有访问第一页的时候才会有值，所以这里抓取出来用于倒序时遍历
         let ts = new Date().toLocaleTimeString("zh-CN");
-        let list = data.special_list.filter(item => item.superscript && item.superscript.type == 2);
+        let list = data.special_list;
         for (let index = 0; index < list.length; index++) {
             const element = list[index];
             list[index] = new Medal(element, ts);
