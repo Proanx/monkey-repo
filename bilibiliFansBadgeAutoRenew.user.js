@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.3.3
+// @version      0.3.4
 // @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -61,7 +61,9 @@
 
     const Setting = {
         get UID() {
-            return document.cookie.match(/DedeUserID=(\d*); /)[1]
+            let uid = document.cookie.match(/DedeUserID=(\d*); /);
+            if (uid) { return uid[1]; }
+            return 0;
         },
         get TOKEN() {
             let regex = document.cookie.match(/bili_jct=(\w*); /);
@@ -617,6 +619,18 @@
                     // 有时会返奇怪的code，所以先不判断了
                     return resolve(json.data);
                 });
+        });
+    }
+
+    async function getUserInfo() {
+        return new Promise((resolve, reject) => {
+            fetch("https://api.bilibili.com/x/space/myinfo", {
+                credentials: 'include'
+            })
+                .then(response => response.json())
+                .then(json => {
+                    return resolve(json.data);
+                })
         });
     }
 
