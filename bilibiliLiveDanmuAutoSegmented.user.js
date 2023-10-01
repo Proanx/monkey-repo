@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室弹幕发送增强
 // @namespace    http://tampermonkey.net/
-// @version      0.3.1
+// @version      0.3.2
 // @description  原理是分开发送。接管了发送框，会提示屏蔽词
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -40,7 +40,7 @@
     let wordTree = {};
     initTree();
 
-    GM_addStyle("#medal-selector{height:20px;}.medal-section{display:inline-block;position:relative;top:1px;}.dialog-ctnr>.arrow{display:none}.chat-input-ctnr>div:first-of-type{width:100%}.chat-input-ctnr .input-limit-hint{z-index:10;bottom:0!important;right:53px!important}#chat-control-panel-vm{height:102px}.chat-history-panel{height:calc(100% - 128px - 102px)!important}#liveDanmuSendBtn{height:100%;min-width:50px;padding-top:5px;border-radius:0 3px 3px 0}.link-toast.error{left:40px;right:40px;white-space:normal;margin:auto;text-align:center;box-shadow:0 .2em .1em .1em rgb(255 100 100 / 20%)}#liveDanmuInputArea{background-color:transparent;position:relative;z-index:1;padding:4px 8px;line-height:18px;word-break:break-all;overflow:auto;scrollbar-width:thin}#liveDanmuInputArea::-webkit-scrollbar,.chat-input-cover::-webkit-scrollbar{width:6px}#liveDanmuInputArea::-webkit-scrollbar-thumb,.chat-input-cover::-webkit-scrollbar-thumb{background-color:#aaa}.control-panel-icon-row>.icon-right-part{margin-right:6px}.chat-input-ctnr{margin-top:4px!important}.control-panel-icon-row .medal-section .medal-item-margin{margin:2px}");
+    GM_addStyle("#medal-selector{height:20px;}.medal-section{display:inline-block;position:relative;top:1px;}.dialog-ctnr>.arrow{display:none}.chat-input-ctnr>div:first-of-type{width:100%}.chat-input-ctnr .input-limit-hint{z-index:10;bottom:0!important;right:53px!important}#chat-control-panel-vm{height:102px}.chat-history-panel{height:calc(100% - 128px - 152px)!important}#liveDanmuSendBtn{height:100%;min-width:50px;padding-top:5px;border-radius:0 3px 3px 0}.link-toast.error{left:40px;right:40px;white-space:normal;margin:auto;text-align:center;box-shadow:0 .2em .1em .1em rgb(255 100 100 / 20%)}#liveDanmuInputArea{background-color:transparent;position:relative;z-index:1;padding:4px 8px;line-height:18px;word-break:break-all;overflow:auto;scrollbar-width:thin}#liveDanmuInputArea::-webkit-scrollbar,.chat-input-cover::-webkit-scrollbar{width:6px}#liveDanmuInputArea::-webkit-scrollbar-thumb,.chat-input-cover::-webkit-scrollbar-thumb{background-color:#aaa}.control-panel-icon-row>.icon-right-part{margin-right:6px}.chat-input-ctnr{margin-top:4px!important}.control-panel-icon-row .medal-section .medal-item-margin{margin:2px}");
 
     // 新版小表情CSS
     GM_addStyle(".danmaku-preference-ctnr .img-pane .emotion-wrap.emoji-wrap .emoticon-item>img{pointer-events:none;}");
