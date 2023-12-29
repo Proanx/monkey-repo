@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.2.3
+// @version      1.2.4
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -13,6 +13,7 @@
 // ==/UserScript==
 
 // ! csrf过期后调用原生徽章按钮不会刷新状态
+// ! bug: 有一个最近获得的粉丝牌置顶，然后获取了新粉丝牌，且新粉丝牌为当前房间（最新获得被当前房间顶掉）
 
 (function init() {
     'use strict';
@@ -113,27 +114,23 @@
                     document.querySelector(".medal-wear-body").scrollTop = 0;
                 }
             });
-            window.addEventListener('focus', e => {
-                this.autoSwitch = GM_getValue(`autoSwitch-${my_id}`, false);
-                let wearing = GM_getValue(`currentlyWearing-${my_id}`);
-                if (wearing && this.currentlyWearing.medal.medal_id != wearing.medal.medal_id) {
-                    this.currentlyWearing = wearing;
-                }
-                if (wearing && this.name != GM_getValue(`operator-${my_id}`) && this.fansMedalInfo.my_fans_medal.medal_id != wearing.medal.medal_id) {
-                    this.needSwitch = true;
-                } else {
-                    this.needSwitch = false;
-                }
-            });
+            window.addEventListener('blur', () => { this.isTabBlur = true; });
+            window.addEventListener('focus', this.refreshScriptInfo);
             // 鼠标移动到礼物栏、弹幕输入区域时进行自动切换
             let initMouseEventDeadLine = Date.now() + 15000;
             (function initMouseEvent(vueInstance) {
-                let giftDom = document.querySelector("#gift-control-vm .section");
+                let giftDom = document.querySelector("#gift-control-vm .gift-panel");
                 let inputDom = document.querySelector("#control-panel-ctnr-box");
                 if (giftDom && inputDom) {
                     giftDom.onmouseenter = inputDom.onmouseenter = () => {
+                        // console.log("徽章更换检测1", vueInstance.isTabBlur);
+                        if (vueInstance.isTabBlur) {
+                            vueInstance.refreshScriptInfo();
+                        }
+                        // console.log("徽章更换检测2", vueInstance.isTabBlur);
                         let cRoomMedal = vueInstance.fansMedalInfo.my_fans_medal.medal_id;
                         if (vueInstance.autoSwitch && vueInstance.needSwitch && cRoomMedal != 0) {
+                            // console.log("徽章触发更换");
                             vueInstance.switchBadge(cRoomMedal, vueInstance.medalWallIndex.indexOf(cRoomMedal));
                             vueInstance.needSwitch = false;
                         }
@@ -209,6 +206,7 @@
                 debounce: {},
                 search: "",
                 label: "",
+                isTabBlur: false,   // 标识网页是否失焦
             }
         },
         watch: {
@@ -337,6 +335,7 @@
                                 }
                                 for (let item of json.data.special_list) {
                                     // 抓取当前佩戴
+                                    // 2023年7月26日 item.medal.wearing_status不总是准确的
                                     if (assignMedal && item.medal.wearing_status) {
                                         this.currentlyWearing = item;
                                         continue;
@@ -537,6 +536,22 @@
                 // 经验排序
                 return b.medal.intimacy - a.medal.intimacy;
             },
+            refreshScriptInfo(event) {
+                // console.log("插件状态更新", this.isTabBlur);
+                this.isTabBlur = false;
+                // 获取最新状态
+                this.autoSwitch = GM_getValue(`autoSwitch-${my_id}`, false);
+                // 如果当前页面展示的粉丝牌不是实际佩戴的粉丝牌，那么更新显示
+                let wearing = GM_getValue(`currentlyWearing-${my_id}`);
+                if (wearing && this.currentlyWearing.medal.medal_id != wearing.medal.medal_id) {
+                    this.currentlyWearing = wearing;
+                }
+                if (wearing && this.name != GM_getValue(`operator-${my_id}`) && this.fansMedalInfo.my_fans_medal.medal_id != wearing.medal.medal_id) {
+                    this.needSwitch = true;
+                } else {
+                    this.needSwitch = false;
+                }
+            }
         },
         template: `
             <div class="border-box dialog-ctnr common-popup-wrap medal a-scale-in" v-show="panelStatus" @mouseleave="togglePanel">
