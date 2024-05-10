@@ -24,7 +24,7 @@ const config = {
     optimization: {
         concatenateModules:true,
         usedExports: true,
-        minimize: false,
+        minimize: true,
     },
 
 };

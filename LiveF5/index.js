@@ -6,12 +6,13 @@ let deadLine = Date.now() + 5000;
 (function init() {
     if (!document.cookie.match(/bili_jct=(\w*); /)) { return; }
 
-    let dom = document.querySelector(".bili-dyn-live-users");
+    let dom = document.querySelector("aside.left");
     if (dom) {
-        let dom = document.querySelector(".bili-dyn-live-users");
-        dom.innerHTML = "";
-        dom.className = "live-f5";
-        dom.id = "live-f5";
+        
+        let temp = document.createElement("section");
+        temp.className = "sticky";
+        temp.id = "live-f5";
+        dom.append(temp);
 
         new Livef5({
             target: document.querySelector("#live-f5")

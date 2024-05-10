@@ -2,3 +2,12 @@
 section.sticky>.bili-dyn-live-users:not(.boost) {
     display: none;
 }
+
+/* 新版动态页面适配 */
+aside.left>.bili-dyn-live-users:not(.boost) {
+    display: none;
+}
+/* 
+aside.left .bili-dyn-live-users.boost {
+    padding: 8px 4px;
+} */
