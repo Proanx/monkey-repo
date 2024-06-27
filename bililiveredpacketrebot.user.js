@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.2.8
+// @version         0.2.9
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -9,6 +9,8 @@
 // @grant           GM_getValue
 // @grant           GM_setValue
 // @grant           GM_xmlhttpRequest
+// @grant           GM_registerMenuCommand
+// @grant           GM_unregisterMenuCommand
 // @connect         api.live.bilibili.com
 // @run-at          document-end
 // @noframes
@@ -56,6 +58,13 @@
             return -480;
         }
     }
+    let autoUnfollow = GM_getValue("autoUnfollow", true);
+    let menuId = undefined;
+
+    autoUnfollow = !autoUnfollow;   // 里面会翻状态，所以先翻一次
+    autoUnfollowMenu();
+
+    setTimeout(unfollow, 3000);
 
     window.addEventListener('focus', e => {
         giftCount = 0;
@@ -118,6 +127,13 @@
     });
 
     getLottery();
+
+    function autoUnfollowMenu() {
+        autoUnfollow = !autoUnfollow;
+        GM_setValue("autoUnfollow", autoUnfollow);
+        GM_unregisterMenuCommand(menuId);
+        menuId = GM_registerMenuCommand(`自动取关功能 [${autoUnfollow ? '√' : '×'}]`, autoUnfollowMenu);
+    }
 
     function getLottery() {
         fetch(`https://api.live.bilibili.com/xlive/lottery-interface/v1/lottery/getLotteryInfoWeb?roomid=${ROOM_ID}`)
@@ -297,6 +313,10 @@
 
     async function unfollow() {
         return new Promise((r, j) => {
+            if (!autoUnfollow) {
+                console.log("自动抢红包-自动取关已关闭，跳过取关");
+                return r(false);
+            }
             fetch(`https://api.bilibili.com/x/relation/tag/user?fid=${ROOM_USER_ID}&jsonp=jsonp&_=${Date.now()}`, {
                 "credentials": "include"
             })
