@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.2.9
+// @version         0.2.10
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -63,8 +63,6 @@
 
     autoUnfollow = !autoUnfollow;   // 里面会翻状态，所以先翻一次
     autoUnfollowMenu();
-
-    setTimeout(unfollow, 3000);
 
     window.addEventListener('focus', e => {
         giftCount = 0;
