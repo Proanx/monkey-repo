@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室弹幕发送增强
 // @namespace    http://tampermonkey.net/
-// @version      0.3.2
+// @version      0.3.3
 // @description  原理是分开发送。接管了发送框，会提示屏蔽词
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -40,35 +40,20 @@
     let wordTree = {};
     initTree();
 
-    GM_addStyle("#medal-selector{height:20px;}.medal-section{display:inline-block;position:relative;top:1px;}.dialog-ctnr>.arrow{display:none}.chat-input-ctnr>div:first-of-type{width:100%}.chat-input-ctnr .input-limit-hint{z-index:10;bottom:0!important;right:53px!important}#chat-control-panel-vm{height:102px}.chat-history-panel{height:calc(100% - 128px - 152px)!important}#liveDanmuSendBtn{height:100%;min-width:50px;padding-top:5px;border-radius:0 3px 3px 0}.link-toast.error{left:40px;right:40px;white-space:normal;margin:auto;text-align:center;box-shadow:0 .2em .1em .1em rgb(255 100 100 / 20%)}#liveDanmuInputArea{background-color:transparent;position:relative;z-index:1;padding:4px 8px;line-height:18px;word-break:break-all;overflow:auto;scrollbar-width:thin}#liveDanmuInputArea::-webkit-scrollbar,.chat-input-cover::-webkit-scrollbar{width:6px}#liveDanmuInputArea::-webkit-scrollbar-thumb,.chat-input-cover::-webkit-scrollbar-thumb{background-color:#aaa}.control-panel-icon-row>.icon-right-part{margin-right:6px}.chat-input-ctnr{margin-top:4px!important}.control-panel-icon-row .medal-section .medal-item-margin{margin:2px}");
+    // 组件CSS
+    GM_addStyle("#medal-selector{height:20px;}.medal-section{display:inline-block;position:relative;top:2px;left:5px;}.dialog-ctnr>.arrow{display:none}.chat-input-ctnr>div:first-of-type{width:100%}.chat-input-ctnr .input-limit-hint{z-index:10;bottom:0!important;right:53px!important}#chat-control-panel-vm{height:102px}.chat-history-panel{height:calc(100% - 128px - 152px)!important}#liveDanmuSendBtn{height:100%;min-width:50px;padding-top:5px;border-radius:0 3px 3px 0}.link-toast.error{left:40px;right:40px;white-space:normal;margin:auto;text-align:center;box-shadow:0 .2em .1em .1em rgb(255 100 100 / 20%)}#liveDanmuInputArea{background-color:transparent;position:relative;z-index:1;padding:4px 8px;line-height:18px;word-break:break-all;overflow:auto;scrollbar-width:thin}#liveDanmuInputArea::-webkit-scrollbar,.chat-input-cover::-webkit-scrollbar{width:6px}#liveDanmuInputArea::-webkit-scrollbar-thumb,.chat-input-cover::-webkit-scrollbar-thumb{background-color:#aaa}.control-panel-icon-row>.icon-right-part{margin-right:6px}.chat-input-ctnr{margin-top:0 !important}.control-panel-icon-row .medal-section .medal-item-margin{margin:2px}");
 
+    // combo-card适配CSS
+    GM_addStyle(".chat-history-panel{padding-bottom:0!important}#combo-card{background:linear-gradient(to right,rgb(255 198 217) 20%,rgba(255,102,153,0) 100%)!important;bottom:108px!important;z-index:20;}");
     // 新版小表情CSS
-    GM_addStyle(".danmaku-preference-ctnr .img-pane .emotion-wrap.emoji-wrap .emoticon-item>img{pointer-events:none;}");
+    // GM_addStyle(".danmaku-preference-ctnr .img-pane .emotion-wrap.emoji-wrap .emoticon-item>img{pointer-events:none;}");
+    GM_addStyle(".emotion-recent-wrap{display:none !important;}");
     // 输入框周围组件默认css
     GM_addStyle(".medal-section .action-item.medal.get-medal,.medal-section .action-item.medal.wear-medal{width:49px !important;height:20px !important;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFYAAAAyCAMAAADx7dyJAAAA51BMVEUAAACampqZmZmampqZmZmampqampqZmZmdnZ2oqKiamprU1NSZmZmZmZmZmZmvr6+ampqampqamprIyMiZmZmampqampqZmZmZmZmampqenp6cnJyfn5+ampqbm5uampqenp7Q0NDOzs6ampqamprPz8/Ozs6ampqbm5vMzMyZmZmZmZnNzc2bm5ubm5uZmZmampqcnJyampqampqampqampqamprNzc2amprU1NTU1NTU1NSamprV1dXS0tLR0dHT09PU1NTT09PW1tbS0tLMzMzt7e2ZmZnj4+PPz8/V1dXo6OjZ2dk1f/nUAAAARXRSTlMA49Zr8zV1SzkGgKukj4UL+q5iA97uw1mpiSAbDupeQRX6eLPNPBnIT+bm0rI9JsFlLdmWm41G+buqn35xMBHr2r5WRCgCpQL/AAADqUlEQVRYw7TS226qQBiG4Q8cUAg7hbHIRo1Y0epCa2vbA0/Jf/93tBhApYqJK3G9yT+QQJ4ME/D/et2s8qe12rxW6ix/crNyr/n3bIGntZh952K/G6E/s1m+AbDKF3hqi3wFIM9xlariqoGCOx19iEK/i8kUIiG2spKE32lxmhmNXiBy7aKExKplpE75PPo3tkudHnnyKbIgGtO5TkA6vpzEbWOVXlUc9+o0lBnOtEd/cIpVbDAumpNYM8Giw5Q2ltF1AUQ2S3DLupqoT+UloFGxhprbwh7VKs7Vuqj+2hfBGm9lcs0a1JL1+NnaHimC3ZnmnJumVbOTTjNKy4vyOKtTxQIw5cbZhvq5CLyPqkfZgDntrELG4SDJh0NCIfZDYGJMb9mweyqOz7ch4DujitUZc4ix9MIugyDtB8GuYIcyoFMLu6OWdrBJfanYkXfcxsdEvrCMc8fhnBWsz4GfNW7ZbFA1lzmX54OqDLBcwU5IGQ3FIagNVgG2BrCkUOzUZeb9s+1SV5KWjoJLgl1ScMt6+z1j+71EoXhnQsu7bMC3kCRs1/ZvtkP2NRtNJuu0Gg3vNPh0pvdYLXXeBZuxxP3F6gxnlluof1xvXYxc/q6xwfu4x5o0gGCxpE+3yX54F1YaQWR5nsOq6QCGQ1932MigT1QsLErsBttPL6xnoouyYVKOaEweEGotrOKR4Z5YjGgeXFjJr1ldxvojIgWR7/uxVMxbcRNhRx+A7rnXrKs64smZhUVsd2LfaVyysS79YNvPKELUbxQFjGIbvoxr1qS/tdZvS8JQFMfxHy2SFNxqJJUau6ggCdnSxDacf093d/P9v56Gd7Gcyx2ofZ8Jh88D72Ecy8BPFk+XspmyV9I5sFa/NcN0NOzqR+sPk0d+dwBnZBnWg/08PWHdvotjFm6rnbLjPmB2kj9B/764Aczbluw9wja6l3XnTRqoy7mccT81mr2vIyllMZdDoG31Dgg6zTt38gpgIsf2GbZWw1EvhoOOXutrHGojycF3JnR6ETL2fyOq6Pyo6Fiq6LSr5hCt8GzOWgiKPnOFRA3kahCF+bmIxAI6tvoXNyhWPwC2G+C0Dalilesq2hRthiIVFqhMN1SkCvd0sCSK4rzKc+OIaDlAYbYv0tnstRiunhW+jd8K1sksS9VuNrsOcC6fVJypPDdW5KOkFe0zlefuaYWydoriTOW4MakdSvNIaZXrKvJQnilIq1yXhAlGW6E8sPOU2IKXjeL4w19GXEgqF0Zf/gAAAABJRU5ErkJggg==)}.medal-section .action-item.medal{background-size:cover;border:0}.medal-section .action-item{display:inline-block;margin:0 2px;font-size:12px;color:#fff;line-height:14px;text-align:center;border-radius:2px;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}");
     // 输入框边框
     GM_addStyle(".chat-input-ctnr{transition:border-color .2s linear;}.chat-input-ctnr:focus-within:hover{border-color: var(--brand_blue);}");
     // 输入框css
-    GM_addStyle(`
-		div.chat-input.border-box{
-			position: absolute;
-			padding: 4px 8px;
-    		line-height: 18px;
-			word-break: break-all;
-			overflow: auto;
-    		padding-right: 58px;
-			scrollbar-width: thin;
-			color: transparent;
-		}
-		/* 软敏感词 */
-		div.chat-input .f-word {
-			background-color: var(--Ly4);
-		}
-		/* 屏蔽词词 */
-		div.chat-input .fire-word {
-			background-color: #ff4500;
-		}
-	`);
+    GM_addStyle("div.chat-input.border-box{position:absolute;padding:4px 8px;line-height:18px;word-break:break-all;overflow:auto;padding-right:58px;scrollbar-width:thin;color:transparent}div.chat-input .f-word{background-color:var(--Ly4)}div.chat-input .fire-word{background-color:#ff4500}");
 
     let itv = setInterval(() => {
         let text = $("textarea.chat-input");
@@ -93,21 +78,26 @@
 
             // 适配新版小表情
             let emojiBtn = document.querySelector(".emoticons-panel");
-            emojiBtn.onclick = () => {
-                let deadline = Date.now() + 3000;
+            emojiBtn.addEventListener("click", () => {
+                let deadline = Date.now() + 1000;
                 (function init() {
+                    // todo 最近使用表情支持
                     let emojiPanel = document.querySelector(".emoji-wrap");
                     if (emojiPanel) {
                         emojiPanel.onclick = e => {
+                            let target = e.target;
+                            if (e.target.tagName == "IMG") {
+                                target = e.target.parentNode;
+                            }
                             let inputArea = document.querySelector("#liveDanmuInputArea");
-                            inputArea.value = inputArea.value + e.target.title;
+                            inputArea.value = inputArea.value + target.title;
                             inputArea.oninput();
                         }
                     } else if (Date.now() < deadline) {
                         requestIdleCallback(init, { timeout: 1000 });
                     }
                 })();
-            }
+            });
 
             $("#liveDanmuSendBtn").click(async () => {
                 let msg = $("#liveDanmuInputArea").val();
