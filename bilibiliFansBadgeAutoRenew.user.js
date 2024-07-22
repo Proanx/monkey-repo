@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.3.4
-// @description  发送弹幕+点赞+挂机观看 = 1500亲密度，仅会在不开播的情况下打卡
+// @version      0.3.5
+// @description  2024-7-22新规则更新后不好使了，不建议使用
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
 // @include      /:\/\/t.bilibili.com/
@@ -26,7 +26,8 @@
     //  无痕 -> 不发送弹幕、点赞一次、挂观看直到1500亲密度满（副作用：7天内没有任何互动的直播间牌子会变灰）
     //  常亮 -> 牌子灰了时发送弹幕续牌，其余时间同 无痕 的行为模式相同
     //  低保 -> 牌子灰了时发送弹幕续牌，其余时间不做任何事（副作用：每日首次发送弹幕会有100亲密度）
-    const 全局打卡模式 = "默认";
+    //  退休在65岁 -> 适配新版B站粉丝牌经验规则（2024-7-22 不充钱就没经验咯）
+    const 全局打卡模式 = "退休在65岁";
 
     // 粉丝牌打卡顺序
     // Truthy-倒序-从粉丝牌等级低到高
@@ -317,6 +318,15 @@
                     break;
                 case "低保":
                     if (medal.isNotLighted) {
+                        action.danmu = true;
+                    }
+                    break;
+                case "退休在65岁":
+                    // 给主播点赞：每日首次点满50个赞可获得50亲密度
+                    // 发送弹幕：每日首次发送弹幕达10条可获得70亲密度
+                    // 观看直播：每日每观看五分钟可获得20亲密度，最多可获得80亲密度
+                    // 我比较懒，然后其他行为收益也不高，就只发个弹幕了
+                    if (medal.isNotCheckIn) {
                         action.danmu = true;
                     }
                     break;
@@ -794,7 +804,7 @@
             if (this.wasGuard) {
                 return this.customDanmu ? this.isCheckIn : this.isLighted;
             }
-            return this.intimacy >= 1500;
+            return this.#medal_level == 20 ? true : this.intimacy >= 1500;
         }
         get forceStop() {
             return this.#force_stop.timestamp != undefined;
