@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.3.5
+// @version      0.3.6
 // @description  2024-7-22新规则更新后不好使了，不建议使用
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -96,11 +96,11 @@
         case "t.bilibili.com":
             break;
         case "live.bilibili.com":
-            if (location.pathname.match(/(\/blanc)?\/\d+/)) {
-                let roomInfo = await getRoomInfo(location.pathname.match(/\/(\d+)/)[1]);
-                let fansMedalInfo = await getFansMedalInfo(roomInfo.uid);
-                addLikeBtn(roomInfo, fansMedalInfo);
-            }
+            // if (location.pathname.match(/(\/blanc)?\/\d+/)) {
+            //     let roomInfo = await getRoomInfo(location.pathname.match(/\/(\d+)/)[1]);
+            //     let fansMedalInfo = await getFansMedalInfo(roomInfo.uid);
+            //     addLikeBtn(roomInfo, fansMedalInfo);
+            // }
         default:
             return;
     }
@@ -325,7 +325,7 @@
                     // 给主播点赞：每日首次点满50个赞可获得50亲密度
                     // 发送弹幕：每日首次发送弹幕达10条可获得70亲密度
                     // 观看直播：每日每观看五分钟可获得20亲密度，最多可获得80亲密度
-                    // 我比较懒，然后其他行为收益也不高，就只发个弹幕了
+                    // 所有的行为收益都不高，随便搞搞完事了
                     if (medal.isNotCheckIn) {
                         action.danmu = true;
                     }
@@ -357,7 +357,9 @@
 
             if (action.danmu) {
                 // 弹幕
-                messageQueue.triggerInteract("sendDanmu", sendMsg, medal, sync ? 5000 : 1000);
+                for (let index = 0; index < 10; index++) {
+                    messageQueue.triggerInteract("sendDanmu", sendMsg, medal, sync ? 10000 : 5000);
+                }
             }
             if (action.like) {
                 // 点赞
@@ -785,7 +787,7 @@
         // get forceStop() { return this.#force_stop; }
 
         get isCheckIn() {
-            return this.#check_in.count >= 3 || (this.intimacy >= 100 && this.isNotLiked && this.isLighted);
+            return this.#check_in.count >= 10 || (this.intimacy >= 70 && this.isNotLiked && this.isLighted);
         }
         get isLiked() {
             return this.#like.count >= 1;
