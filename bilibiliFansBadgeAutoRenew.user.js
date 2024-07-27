@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站自动续牌
 // @namespace    http://tampermonkey.net/
-// @version      0.3.6
+// @version      0.3.7
 // @description  2024-7-22新规则更新后不好使了，不建议使用
 // @author       Pronax
 // @include      /:\/\/live.bilibili.com(\/blanc)?\/\d+/
@@ -286,6 +286,12 @@
         for (let medal of medalDetail) {
             // 判断黑名单、白名单、是否已完成打卡
             if (blackList.includes(medal.uid) || (whiteList.length && !whiteList.includes(medal.uid)) || medal.isFinished) {
+                finished++;
+                continue;
+            }
+            // 2024-7-23 已经灰了的牌子必须要刷钱，所以直接跳过
+            if (medal.isNotLighted) {
+                console.log(`自动续牌-${medal.name}的牌子已经熄灭，跳过打卡`);
                 finished++;
                 continue;
             }
@@ -790,13 +796,13 @@
             return this.#check_in.count >= 10 || (this.intimacy >= 70 && this.isNotLiked && this.isLighted);
         }
         get isLiked() {
-            return this.#like.count >= 1;
+            return this.#like.count >= 50;
         }
         get isShared() {
             return this.#share.count >= 5;
         }
         get isWatched() {
-            return this.#watch.count >= 15;
+            return this.#watch.count >= 4;
             // || this.watchCount >= 15;
         }
         get isFinished() {
@@ -806,7 +812,7 @@
             if (this.wasGuard) {
                 return this.customDanmu ? this.isCheckIn : this.isLighted;
             }
-            return this.#medal_level == 20 ? true : this.intimacy >= 1500;
+            return this.intimacy >= 70;
         }
         get forceStop() {
             return this.#force_stop.timestamp != undefined;
@@ -822,9 +828,10 @@
         }
         get watchCount() {
             // 计算真实观看次数
-            let watchTimes = Math.floor(this.intimacy / 100);
-            this.isCheckIn && watchTimes--;
-            this.isLiked && watchTimes--;
+            let calIntimacy = this.intimacy;
+            if (this.isCheckIn) { calIntimacy -= 70; }
+            if (this.isLiked) { calIntimacy -= 50; }
+            let watchTimes = Math.floor(calIntimacy / 20);
             return watchTimes;
         }
 
