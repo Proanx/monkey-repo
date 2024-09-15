@@ -35,7 +35,7 @@
 
     const LIMIT = await ROOM_INFO_API.getDanmuLength(roomId);
 
-    const riverCrabs = { "神仙水": "f", "小赤佬": "f", "速器": "fire", "商丘": "fire", "谨慎": "fire", "慎判": "fire", "代练": "f", "违规直播": "f", "低俗": "f", "系统": "f", "渣女": "f", "肥": "fire", "墙了": "f", "变质": "f", "小熊": "f", "疫情": "f", "感染": "f", "分钟": "f", "爽死": "f", "黑历史": "f", "超度": "f", "渣男": "f", "和谐": "f", "河蟹": "f", "敏感": "f", "你妈": "f", "代孕": "f", "硬了": "f", "抖音": "f", "保卫": "f", "被gan": "f", "寄吧": "f", "郭楠": "f", "里番": "f", "小幸运": "f", "试看": "f", "加QQ": "f", "警察": "f", "营养": "f", "资料": "f", "家宝": "f", "饿死": "f", "不认字": "f", "横幅": "f", "hentai": "f", "诱惑": "f", "垃圾": "f", "福报": "f", "拉屎": "f", "顶不住": "f", "一口气": "f", "苏联": "f", "哪个平": "f", "老鼠台": "f", "顶得住": "f", "gay": "f", "黑幕": "f", "蜀黍我啊": "f", "梯子": "f", "美国": "f", "米国": "f", "未成年": "f", "爪巴": "f", "包子": "fire", "党": "fire", "89": "fire", "戏精": "fire", "八九": "fire", "八十九": "fire", "你画我猜": "fire", "叔叔我啊": "fire", "爬": "fire" };
+    const riverCrabs = { "母鸡": "f", "神仙水": "f", "小赤佬": "f", "速器": "fire", "商丘": "fire", "谨慎": "fire", "慎判": "fire", "代练": "f", "违规直播": "f", "低俗": "f", "系统": "f", "渣女": "f", "肥": "fire", "墙了": "f", "变质": "f", "小熊": "f", "疫情": "f", "感染": "f", "分钟": "f", "爽死": "f", "黑历史": "f", "超度": "f", "渣男": "f", "和谐": "f", "河蟹": "f", "敏感": "f", "你妈": "f", "代孕": "f", "硬了": "f", "抖音": "f", "保卫": "f", "被gan": "f", "寄吧": "f", "郭楠": "f", "里番": "f", "小幸运": "f", "试看": "f", "加QQ": "f", "警察": "f", "营养": "f", "资料": "f", "家宝": "f", "饿死": "f", "不认字": "f", "横幅": "f", "hentai": "f", "诱惑": "f", "垃圾": "f", "福报": "f", "拉屎": "f", "顶不住": "f", "一口气": "f", "苏联": "f", "哪个平": "f", "老鼠台": "f", "顶得住": "f", "gay": "f", "黑幕": "f", "蜀黍我啊": "f", "梯子": "f", "美国": "f", "米国": "f", "未成年": "f", "爪巴": "f", "包子": "fire", "党": "fire", "89": "fire", "戏精": "fire", "八九": "fire", "八十九": "fire", "你画我猜": "fire", "叔叔我啊": "fire", "爬": "fire" };
     let wordTree = {};
     initTree();
 
@@ -74,7 +74,7 @@
                 inputParentBox.classList.add("at");
                 inputArea.dom.dataset.at = this.username;
                 inputArea.bgDom.dataset.at = this.username;
-                let width = parseInt(getComputedStyle(at.calDom).width) + 15; // 我也不知道为什么+15
+                let width = parseInt(getComputedStyle(at.calDom).width) + 13; // 我也不知道为什么加这个数
                 inputArea.dom.style.textIndent = width + 'px';
             }
         }
@@ -138,7 +138,7 @@
             textarea.parentNode.after(inputArea.limitHintDom);
 
             // 背景
-            GM_addStyle("#liveDanmuInputBackground{opacity:0;left:0;top:50%;transform:translateY(-50%);color:green;overflow-y:auto;}.chat-input-focus #liveDanmuInputBackground{opacity:1}");
+            GM_addStyle("#liveDanmuInputBackground{opacity:0;left:0;top:50%;transform:translateY(-50%);color:transparent;overflow-y:auto;}.chat-input-focus #liveDanmuInputBackground{opacity:1}");
             inputArea.bgDom = document.createElement("div");
             inputArea.bgDom.id = "liveDanmuInputBackground";
             inputArea.bgDom.className = "textarea-panel p-absolute dp-i-block input-area";
@@ -225,7 +225,7 @@
             });
 
             // @别人
-            GM_addStyle("#liveDanmuAtLabel,.at #liveDanmuInputBackground::before{content:'@'attr(data-at);border-radius:2px;background-color:var(--Pi4_u);box-shadow:0 0 0 2px var(--Pi4_u);padding:0 2px;margin:0 5px;color:var(--text_white)}");
+            GM_addStyle("#liveDanmuAtLabel,.at #liveDanmuInputBackground::before{content:'@'attr(data-at);border-radius:2px;background-color:var(--Pi4_u);box-shadow:0 0 0 2px var(--Pi4_u);padding:0 2px;margin:0 5px 0 3px;color:var(--text_white)}");
             setTimeout(() => {  // 页面刚加载完毕时，只有一个菜单，没有@按钮，所以注册一个监听器等首次打开菜单时才注册事件到@按钮上
                 let observer = new MutationObserver(function (mutations) {
                     let danmuMenuAt = document.querySelector(".danmaku-menu .at-this-guy");
