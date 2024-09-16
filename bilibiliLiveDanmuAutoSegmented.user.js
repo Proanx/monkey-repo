@@ -49,6 +49,8 @@
     GM_addStyle("#control-panel-ctnr-box{padding:10px 8px}#control-panel-ctnr-box>.chat-input-ctnr-new{margin-top:10px;align-items:center}.chat-input-ctnr-new div.chat-input-new{height:82px;padding:5px 5px 5px 0}");
     // 插件输入框及背景框的公共CSS
     GM_addStyle(".input-area{scrollbar-width:thin;height:72px;overflow-x:hidden;}.input-area::-webkit-scrollbar{width:4px;}#liveDanmuInputBackground,#liveDanmuInputArea.focus{white-space:break-spaces;line-height:19px;margin:0 0 0 8px;width:190px;}");
+    // @别人的提示标志
+    GM_addStyle("#liveDanmuAtLabel,.at #liveDanmuInputBackground::before{content:'@'attr(data-at);border-radius:2px;background-color:var(--Pi4_u);box-shadow:0 0 0 2px var(--Pi4_u);padding:0 2px;margin:0 5px 0 3px;color:var(--text_white)}");
 
     // 用于回复@别人
     let at = {
@@ -76,6 +78,8 @@
                 inputArea.bgDom.dataset.at = this.username;
                 let width = parseInt(getComputedStyle(at.calDom).width) + 13; // 我也不知道为什么加这个数
                 inputArea.dom.style.textIndent = width + 'px';
+            } else {
+                console.warn(`初始化@数据失败：无法找到${this.username}的弹幕`);
             }
         }
     }
@@ -148,8 +152,9 @@
             textarea.after(inputArea.bgDom);
 
             // 输入框
-            GM_addStyle("#liveDanmuInputArea{padding:0;z-index:1;position:relative;background-color:transparent;line-height:72px;height:72px;}#liveDanmuInputArea.default{text-indent:0 !important}");
+            GM_addStyle("#liveDanmuInputArea{padding:0;z-index:1;position:relative;background-color:transparent;line-height:72px;height:72px;}");
             GM_addStyle(".f-word{background-color:var(--Ly4)}.fire-word{background-color:var(--Or5)}");
+            // GM_addStyle("#liveDanmuInputArea.default{text-indent:0 !important}");
             // 用input配合一个div背景。如果用contentEditable来搞，容易搞坏光标定位和编辑栈，已放弃
             inputArea.dom = textarea.cloneNode();
             inputArea.dom.id = "liveDanmuInputArea";
@@ -225,7 +230,6 @@
             });
 
             // @别人
-            GM_addStyle("#liveDanmuAtLabel,.at #liveDanmuInputBackground::before{content:'@'attr(data-at);border-radius:2px;background-color:var(--Pi4_u);box-shadow:0 0 0 2px var(--Pi4_u);padding:0 2px;margin:0 5px 0 3px;color:var(--text_white)}");
             setTimeout(() => {  // 页面刚加载完毕时，只有一个菜单，没有@按钮，所以注册一个监听器等首次打开菜单时才注册事件到@按钮上
                 let observer = new MutationObserver(function (mutations) {
                     let danmuMenuAt = document.querySelector(".danmaku-menu .at-this-guy");
@@ -251,7 +255,7 @@
                 });
             }, 3000);
             // @别人 用来测量字符长度的小框
-            GM_addStyle("#liveDanmuAtLabel{opacity:0;z-index:-1;width:auto;right:-100px;}");
+            GM_addStyle("#liveDanmuAtLabel{opacity:0;z-index:-1;width:auto;left:0;top: 50%;transform: translateY(-50%);}.chat-input-ctnr-new:not(.chat-input-focus) .at #liveDanmuAtLabel{opacity:1;z-index:0;}");
             at.calDom = document.createElement("span");
             at.calDom.id = "liveDanmuAtLabel";
             at.calDom.removeAttribute("placeholder");
