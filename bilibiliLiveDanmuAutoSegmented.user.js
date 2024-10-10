@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室弹幕发送增强
 // @namespace    http://tampermonkey.net/
-// @version      0.4.1
+// @version      0.4.2
 // @description  原理是分开发送。接管了发送框，会提示屏蔽词
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -35,22 +35,22 @@
 
     const LIMIT = await ROOM_INFO_API.getDanmuLength(roomId);
 
-    const riverCrabs = { "母鸡": "f", "神仙水": "f", "小赤佬": "f", "速器": "fire", "商丘": "fire", "谨慎": "fire", "慎判": "fire", "代练": "f", "违规直播": "f", "低俗": "f", "系统": "f", "渣女": "f", "肥": "fire", "墙了": "f", "变质": "f", "小熊": "f", "疫情": "f", "感染": "f", "分钟": "f", "爽死": "f", "黑历史": "f", "超度": "f", "渣男": "f", "和谐": "f", "河蟹": "f", "敏感": "f", "你妈": "f", "代孕": "f", "硬了": "f", "抖音": "f", "保卫": "f", "被gan": "f", "寄吧": "f", "郭楠": "f", "里番": "f", "小幸运": "f", "试看": "f", "加QQ": "f", "警察": "f", "营养": "f", "资料": "f", "家宝": "f", "饿死": "f", "不认字": "f", "横幅": "f", "hentai": "f", "诱惑": "f", "垃圾": "f", "福报": "f", "拉屎": "f", "顶不住": "f", "一口气": "f", "苏联": "f", "哪个平": "f", "老鼠台": "f", "顶得住": "f", "gay": "f", "黑幕": "f", "蜀黍我啊": "f", "梯子": "f", "美国": "f", "米国": "f", "未成年": "f", "爪巴": "f", "包子": "fire", "党": "fire", "89": "fire", "戏精": "fire", "八九": "fire", "八十九": "fire", "你画我猜": "fire", "叔叔我啊": "fire", "爬": "fire" };
+    const riverCrabs = { "168": "f", "母鸡": "f", "神仙水": "f", "小赤佬": "f", "速器": "fire", "商丘": "fire", "慎判": "fire", "代练": "f", "违规直播": "f", "低俗": "f", "系统": "f", "渣女": "f", "肥": "fire", "墙了": "f", "变质": "f", "小熊": "f", "疫情": "f", "感染": "f", "分钟": "f", "爽死": "f", "黑历史": "f", "超度": "f", "渣男": "f", "和谐": "f", "河蟹": "f", "敏感": "f", "你妈": "f", "代孕": "f", "硬了": "f", "抖音": "f", "保卫": "f", "被gan": "f", "寄吧": "f", "郭楠": "f", "里番": "f", "小幸运": "f", "试看": "f", "加QQ": "f", "警察": "f", "营养": "f", "资料": "f", "家宝": "f", "饿死": "f", "不认字": "f", "横幅": "f", "hentai": "f", "诱惑": "f", "垃圾": "f", "福报": "f", "拉屎": "f", "顶不住": "f", "一口气": "f", "苏联": "f", "哪个平": "f", "老鼠台": "f", "顶得住": "f", "gay": "f", "黑幕": "f", "蜀黍我啊": "f", "梯子": "f", "美国": "f", "米国": "f", "未成年": "f", "爪巴": "f", "包子": "fire", "党": "fire", "89": "fire", "戏精": "fire", "八九": "fire", "八十九": "fire", "你画我猜": "fire", "叔叔我啊": "fire", "爬": "fire" };
     let wordTree = {};
     initTree();
 
     // 弹出框CSS
     GM_addStyle(".link-toast.error{left:40px;right:40px;white-space:normal;margin:auto;text-align:center;box-shadow:0 .2em .1em .1em rgb(255 100 100/20%)}");
     // 原始粉丝牌
-    GM_addStyle("#control-panel-ctnr-box .medal-section{padding-left:0}");
+    // GM_addStyle("#control-panel-ctnr-box .medal-section{padding-left:0}");
     // 发送按钮 CSS
     GM_addStyle(".chat-input-focus button.right-action-btn{background-color:var(--brand_pink);}.chat-input-ctnr-new button.right-action-btn{min-width: 50px;}.chat-input-ctnr-new button.right-action-btn:hover{background-color:var(--brand_pink);}.chat-input-ctnr-new div.right-actions{margin-right:5px;}");
     // 输入框及母盒子
-    GM_addStyle("#control-panel-ctnr-box{padding:10px 8px}#control-panel-ctnr-box>.chat-input-ctnr-new{margin-top:10px;align-items:center}.chat-input-ctnr-new div.chat-input-new{height:82px;padding:5px 5px 5px 0}");
+    GM_addStyle("#control-panel-ctnr-box{padding:10px 8px 8px}#control-panel-ctnr-box>.chat-input-ctnr-new{margin-top:10px;align-items:center;height:fit-content !important;border-radius:10px;min-height:52px;}");
     // 插件输入框及背景框的公共CSS
-    GM_addStyle(".input-area{scrollbar-width:thin;height:72px;overflow-x:hidden;}.input-area::-webkit-scrollbar{width:4px;}#liveDanmuInputBackground,#liveDanmuInputArea.focus{white-space:break-spaces;line-height:19px;margin:0 0 0 8px;width:190px;}");
+    GM_addStyle("div.chat-input-ctnr-new>.chat-input-new.default-height{height:fit-content !important;}.chat-input-new>.textarea-panel.input-area{scrollbar-width:thin;overflow-x:hidden;}.chat-input-new>.textarea-panel.input-area::-webkit-scrollbar{width:4px;}#liveDanmuInputBackground,#liveDanmuInputArea.focus{line-height:19px;height:87px;margin-left:10px;}");
     // @别人的提示标志
-    GM_addStyle("#liveDanmuAtLabel,.at #liveDanmuInputBackground::before{content:'@'attr(data-at);border-radius:2px;background-color:var(--Pi4_u);box-shadow:0 0 0 2px var(--Pi4_u);padding:0 2px;margin:0 5px 0 3px;color:var(--text_white)}");
+    GM_addStyle("#liveDanmuAtLabel,.at #liveDanmuInputBackground::before{content:'@'attr(data-at);border-radius:2px;background-color:var(--Pi4_u);box-shadow:0 0 0 1px var(--Pi4_u);padding:0 3px;margin:0 5px 0 3px;color:var(--text_white)}");
 
     // 用于回复@别人
     let at = {
@@ -62,7 +62,9 @@
             if (!this.username) {
                 this.uid = undefined;
                 let inputParentBox = document.querySelector(".chat-input-new");
-                inputParentBox.classList.remove("at");
+                requestAnimationFrame(() => {
+                    inputParentBox.classList.remove("at");
+                });
                 inputArea.dom.style.textIndent = '';
                 return;
             }
@@ -73,10 +75,12 @@
             if (danmuDom && danmuDom.dataset.uid) {
                 this.uid = danmuDom.dataset.uid;
                 let inputParentBox = document.querySelector(".chat-input-new");
-                inputParentBox.classList.add("at");
+                requestAnimationFrame(() => {
+                    inputParentBox.classList.add("at");
+                });
                 inputArea.dom.dataset.at = this.username;
                 inputArea.bgDom.dataset.at = this.username;
-                let width = parseInt(getComputedStyle(at.calDom).width) + 13; // 我也不知道为什么加这个数
+                let width = parseInt(getComputedStyle(at.calDom).width) + 15; // 我也不知道为什么加这个数
                 inputArea.dom.style.textIndent = width + 'px';
             } else {
                 console.warn(`初始化@数据失败：无法找到${this.username}的弹幕`);
@@ -98,7 +102,7 @@
             clearTimeout(this._internalTimeout);
             this._internalTimeout = setTimeout(() => {
                 inputArea.htmlValue = filter(inputArea.textValue);
-            }, 150);
+            }, 170);
             // 指示器内容更新
             if (this.textValue.length > LIMIT) {
                 this.limitHintDom.classList.add("over");
@@ -135,7 +139,7 @@
             // scText && (scText.innerText = "SC");
 
             // 长度提示
-            GM_addStyle(".input-limit-hint{display:none}.chat-input-focus .text-limit-hint{opacity:1}.text-limit-hint{opacity:0;z-index:2;font-size:12px;line-height:19px;color:var(--Ga3);bottom:0;right:25px}.text-limit-hint.over{color:var(--brand_blue)}");
+            GM_addStyle(".input-limit-hint{display:none}.chat-input-focus .text-limit-hint{opacity:1}.text-limit-hint{opacity:0;z-index:2;font-size:12px;line-height:19px;color:var(--Ga3);bottom:0;right:12px}.text-limit-hint.over{color:var(--brand_blue)}");
             inputArea.limitHintDom = document.createElement("span");
             inputArea.limitHintDom.className = "text-limit-hint none-select p-absolute";
             inputArea.limitHintDom.innerText = "0/" + LIMIT;
@@ -152,13 +156,15 @@
             textarea.after(inputArea.bgDom);
 
             // 输入框
-            GM_addStyle("#liveDanmuInputArea{padding:0;z-index:1;position:relative;background-color:transparent;line-height:72px;height:72px;}");
+            GM_addStyle("#liveDanmuInputArea{padding:5px 0;z-index:1;position:relative;background-color:transparent;resize:none;}");
             GM_addStyle(".f-word{background-color:var(--Ly4)}.fire-word{background-color:var(--Or5)}");
-            // GM_addStyle("#liveDanmuInputArea.default{text-indent:0 !important}");
+            GM_addStyle("#liveDanmuInputArea.default{text-indent:.5rem;width: 97%;}");
             // 用input配合一个div背景。如果用contentEditable来搞，容易搞坏光标定位和编辑栈，已放弃
             inputArea.dom = textarea.cloneNode();
             inputArea.dom.id = "liveDanmuInputArea";
             inputArea.dom.classList.add("input-area");
+            inputArea.dom.classList.add("dp-block");
+            inputArea.dom.classList.remove("default-height");
 
             inputArea.dom.addEventListener("scroll", (e) => {
                 inputArea.bgDom.scrollTop = e.target.scrollTop;
@@ -259,7 +265,7 @@
             at.calDom = document.createElement("span");
             at.calDom.id = "liveDanmuAtLabel";
             at.calDom.removeAttribute("placeholder");
-            at.calDom.className = "textarea-panel p-absolute none-select at-label";
+            at.calDom.className = "p-absolute none-select at-label";
             for (let item of Object.keys(textarea.dataset)) {
                 at.calDom.dataset[item] = textarea.dataset[item];
             }
