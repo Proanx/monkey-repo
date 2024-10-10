@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.2.10
+// @version         0.2.11
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -245,7 +245,7 @@
                         console.warn(res);
                         throw new Error("返参错误");
                     }
-                    if (json.code != 0 || json.data.join_status != 1) {
+                    if (json.code !== 0 || json.data.join_status !== 1) {
                         switch (json.code) {
                             case 1009109:       // 每日上限
                                 removeDrawBtn();
@@ -278,6 +278,7 @@
                                 removeDrawBtn();
                                 break;
                             case 1009106:       // 参数错误 ？？？
+                            case -352:          // 当前操作异常，请升级至最新版本后重
                                 resolve(true);
                                 return;
                             default:
