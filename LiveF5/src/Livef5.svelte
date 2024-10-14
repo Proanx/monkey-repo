@@ -7,6 +7,7 @@
     let lasttime = Date.now();
     // let isWatch = false;
     let needUpdate = false;
+    let timeout = null;
 
     onMount(() => {
         // let panel = document.querySelector(".boost.bili-dyn-live-users");
@@ -29,17 +30,23 @@
         //     });
         // }
         window.addEventListener("focus", function () {
-            this.setTimeout(() => {
+            let start = Date.now();
+            this.clearTimeout(timeout);
+            timeout = this.setTimeout(() => {
                 if (needUpdate) {
                     needUpdate = false;
                     main();
                 }
-            }, 1500);
+            }, 750);
         });
 
         refreshLiveList();
         setInterval(() => {
-            main();
+            // 有刷新任务的情况下，定时任务挂起
+            // 这样页面上不会因为定时任务恰好触发导致触发时机不理想
+            if (!needUpdate) {
+                main();
+            }
         }, 10000);
     });
 
@@ -57,6 +64,7 @@
         lasttime = Date.now();
         // "//api.bilibili.com/x/polymer/web-dynamic/v1/portal",
         // "//api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/w_live_users?size=100",
+        // let res = await fetch(`//api.live.bilibili.com/xlive/web-ucenter/v1/xfetter/GetWebList?_=${Date.now()}`, {
         let res = await fetch(`//api.live.bilibili.com/xlive/web-ucenter/v1/xfetter/GetWebList?hit_ab=true&_=${Date.now()}`, {
             credentials: "include",
         });
@@ -66,7 +74,30 @@
         }
         listBody.scrollTo({ top: 0, behavior: "smooth" });
         liveList = json.data.rooms || [];
-        liveCount = json.data.rooms.length;
+        let count = json.data.count ? json.data.count : json.data.rooms.length;
+        animateNumber(count, 300);
+    }
+
+    function animateNumber(target, duration) {
+        // const start = 0;
+        const startTime = performance.now(); // 动画开始时间
+        // const endTime = startTime + duration; // 动画结束时间
+
+        function updateNumber(currentTime) {
+            const elapsedTime = currentTime - startTime;
+            const progress = Math.min(elapsedTime / duration, 1); // 动画进度0到1
+            const easedProgress = progress * (2 - progress); // 计算缓动
+
+            const currentNumber = Math.floor(easedProgress * target); // 根据缓动进度计算当前值
+
+            liveCount = currentNumber;
+
+            if (elapsedTime < duration) {
+                requestAnimationFrame(updateNumber);
+            }
+        }
+
+        requestAnimationFrame(updateNumber);
     }
 </script>
 
@@ -81,7 +112,7 @@
     </div>
     <div class="bili-dyn-live-users__body" bind:this={listBody}>
         {#each liveList as item (item.uid)}
-            <a transition:slide|local class="bili-dyn-live-users__item" target="_blank" href={item.link}>
+            <a transition:slide|local class="bili-dyn-live-users__item" target="_blank" href="//live.bilibili.com/{item.room_id}">
                 <div class="bili-dyn-live-users__item__left">
                     <div class="bili-dyn-live-users__item__face-container">
                         <div class="bili-dyn-live-users__item__face">
