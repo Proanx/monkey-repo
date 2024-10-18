@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            B站直播自动抢红包
-// @version         0.2.11
+// @version         0.2.12
 // @description     进房间自动抢红包，抢完自动取关（需满足条件）
 // @author          Pronax
 // @include         /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -253,7 +253,9 @@
                                 GM_setValue(`limitWarning-${Setting.UID}`, Setting.Beijing_date);
                                 resolve(false);
                                 addDrawBtn(message);
-                                unfollow();
+                                if (!FOLLOWED) {
+                                    unfollow();
+                                }
                                 return;
                             case 1009114:       // 已抽奖
                                 removeDrawBtn();
