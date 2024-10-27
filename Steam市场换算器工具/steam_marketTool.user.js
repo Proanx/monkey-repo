@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam市场 价格/比例/汇率 换算器
 // @namespace    http://pronax.wtf/
-// @version      1.0.2
+// @version      1.0.3
 // @description  见安装页面介绍
 // @author       Pronax
 // @include      *://steamcommunity.com/market/*
@@ -153,7 +153,8 @@
             updateCurrency(currencyData, target = this.currency.target) {
                 let select = this.currency[target].select;
                 this.currency[target].loading = true;
-                fetch(`https://steamcommunity.com/market/listings/730/Souvenir%20Sawed-Off%20|%20Snake%20Camo%20(Well-Worn)/render/?query=&start=40&count=100&currency=${currencyData.eCurrencyCode}`)
+                /* 找到人民币上架的记录，直接通过原货币和目标货币获取汇率 */
+                fetch(`https://steamcommunity.com/market/listings/730/AK-47%20%7C%20Asiimov%20%28Field-Tested%29/render/?start=0&count=100&currency=${currencyData.eCurrencyCode}`)
                     .then(res => res.json())
                     .then(json => {
                         if (json.success) {
