@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam市场 价格/比例/汇率 换算器
 // @namespace    http://pronax.wtf/
-// @version      1.0.3
+// @version      1.0.4
 // @description  见安装页面介绍
 // @author       Pronax
 // @include      *://steamcommunity.com/market/*
