@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.2.9
+// @version      1.2.10
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -8,7 +8,7 @@
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @require      https://lf3-cdn-tos.bytecdntp.com/cdn/expire-1-M/vue/2.6.14/vue.min.js
+// @require      https://lib.baomitu.com/vue/2.6.14/vue.min.js
 // @require      https://greasyfork.org/scripts/439903-blive-room-info-api/code/blive_room_info_api.js?version=1037039
 // ==/UserScript==
 
@@ -64,7 +64,7 @@ function main() {
     // 旧的粉丝牌样式
     GM_addStyle(".old-style.fans-medal-item{border:1px solid #fff;border-radius:2px;padding:0;height:16px}.old-style .fans-medal-label{height:100%;border-radius:0;padding:0 3px}.old-style .fans-medal-label .fans-medal-content{transform:none}.old-style .fans-medal-level{width:17px;height:14px;border-radius:0}");
     // 调用原始按钮更新粉丝牌，暂时隐藏弹窗的css
-    GM_addStyle(".panel-hide .medalAb{display:none}");
+    GM_addStyle(".panel-hide .medal.dialog-ctnr:not(.scripted-panel){display:none}");
 
     // 公用对象
     let pinyinPro = undefined;
@@ -242,7 +242,7 @@ function main() {
                     // 用于其他原版消息发送时展示最新的牌子（比如发表情弹幕）
                     originMedalSelectorDebounce = setTimeout(() => {
                         let originMedelBtn = document.querySelector(".medal-section:not(.scripted)>span");
-                        let medelPanelParent = document.querySelector(".control-panel-ctnr-new");
+                        let medelPanelParent = document.querySelector("#control-panel-ctnr-box");
                         if (!originMedelBtn || !medelPanelParent) {
                             console.log("徽章刷新失败-找不到原版按钮");
                             return;
@@ -257,10 +257,11 @@ function main() {
                                 medelPanelParent.classList.remove("panel-hide");
                                 console.log("徽章刷新失败-无法抓取到原版徽章页面");
                             }
-                            // 弹出后，点击展示设置
-                            let originMedelBox = document.querySelector(".medalAb");
-                            if (originMedelBox) {
+                            // 点开后等待页面加载，加载完成后关闭页面
+                            let hook = document.querySelector(".medal.dialog-ctnr:not(.scripted-panel) .medal-wear-body>.medal-item");
+                            if (hook) {
                                 clearInterval(interval);
+                                let originMedelBox = document.querySelector(".medal.dialog-ctnr:not(.scripted-panel)");
                                 originMedelBox.dispatchEvent(new Event('mouseleave'));
                                 // 立刻执行会闪一下，观感很不好
                                 setTimeout(() => { medelPanelParent.classList.remove("panel-hide"); }, 500);
@@ -507,10 +508,10 @@ function main() {
                         console.log("展示设置打开失败-无法抓取到原版徽章页面");
                     }
                     // 弹出后，点击展示设置
-                    let originMedelBox = document.querySelector(".medalAb");
-                    if (originMedelBox) {
+                    let hook = document.querySelector(".medal.dialog-ctnr:not(.scripted-panel) .medal-wear-body>.medal-item");
+                    if (hook) {
                         clearInterval(interval);
-                        let configBtn = document.querySelector(".medalAb .cancel-wear");
+                        let configBtn = document.querySelector(".medal.dialog-ctnr:not(.scripted-panel) .cancel-wear");
                         if (configBtn) {
                             configBtn.click();
                         } else {
@@ -625,7 +626,7 @@ function main() {
             }
         },
         template: `
-            <div class="border-box dialog-ctnr common-popup-wrap medal a-scale-in" v-show="panelStatus" @mouseleave="togglePanel">
+            <div class="border-box dialog-ctnr common-popup-wrap medal a-scale-in scripted-panel" v-show="panelStatus" @mouseleave="togglePanel">
                 <div class="medal-ctnr none-select">
                     <div class="medal-wear-component">
                         <h1 class="dp-i-block title">
