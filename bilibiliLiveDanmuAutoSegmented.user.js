@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室弹幕发送增强
 // @namespace    http://tampermonkey.net/
-// @version      0.4.3
+// @version      0.4.4
 // @description  原理是分开发送。接管了发送框，会提示屏蔽词
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -40,7 +40,7 @@
     // 弹出框CSS
     GM_addStyle(".link-toast.error{left:40px;right:40px;white-space:normal;margin:auto;text-align:center;box-shadow:0 .2em .1em .1em rgb(255 100 100/20%)}");
     // 原始粉丝牌
-    GM_addStyle("#control-panel-ctnr-box .medal-section.focus-textarea{display:none;}");
+    GM_addStyle(".chat-input-focus .medal-section{display:none !important;}");
     // 发送按钮 CSS
     GM_addStyle(".chat-input-focus button.right-action-btn{background-color:var(--brand_pink);}.chat-input-ctnr-new button.right-action-btn{min-width: 50px;}.chat-input-ctnr-new button.right-action-btn:hover{background-color:var(--brand_pink);}.chat-input-ctnr-new div.right-actions{margin-right:5px;}");
     // 输入框及母盒子
