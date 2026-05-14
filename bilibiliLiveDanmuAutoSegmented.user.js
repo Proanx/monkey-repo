@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室弹幕发送增强
 // @namespace    http://tampermonkey.net/
-// @version      0.4.4
+// @version      0.4.5
 // @description  原理是分开发送。接管了发送框，会提示屏蔽词
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -42,11 +42,11 @@
     // 原始粉丝牌
     GM_addStyle(".chat-input-focus .medal-section{display:none !important;}");
     // 发送按钮 CSS
-    GM_addStyle(".chat-input-focus button.right-action-btn{background-color:var(--brand_pink);}.chat-input-ctnr-new button.right-action-btn{min-width: 50px;}.chat-input-ctnr-new button.right-action-btn:hover{background-color:var(--brand_pink);}.chat-input-ctnr-new div.right-actions{margin-right:5px;}");
+    GM_addStyle(".chat-input-focus .send-btn-wrapper{height:100%;padding-left:0 !important}.chat-input-focus button.send-btn{height:100%;border-radius:0 5px 5px 0!important}");
     // 输入框及母盒子
     GM_addStyle("#control-panel-ctnr-box{padding:10px 8px 8px}#control-panel-ctnr-box>.chat-input-ctnr-new{margin-top:10px;align-items:center;height:fit-content !important;border-radius:10px;min-height:52px;}");
     // 插件输入框及背景框的公共CSS
-    GM_addStyle("#liveDanmuInputBackground,#liveDanmuInputArea.focus{line-height:19px;height:87px;padding:.2rem .5rem .2rem .6rem}#chat-control-panel-vm{max-height:180px !important;}");
+    GM_addStyle("#liveDanmuInputBackground,#liveDanmuInputArea.focus{line-height:19px;height:115px;padding:.2rem .5rem .2rem .6rem}#chat-control-panel-vm{max-height:180px !important;}");
     GM_addStyle(".input-area{word-break: break-all;}");
     // @别人的提示标志
     GM_addStyle("#liveDanmuAtLabel,.at #liveDanmuInputBackground::before{content:'@'attr(data-at);border-radius:2px;background-color:var(--Pi4_u);box-shadow:0 0 0 1px var(--Pi4_u);padding:0 3px;margin:0 5px 0 3px;color:var(--text_white)}");
@@ -73,7 +73,7 @@
                 inputArea.inputParentBox.classList.add("at");
                 inputArea.dom.dataset.at = this.username;
                 inputArea.bgDom.dataset.at = this.username;
-                let width = parseInt(getComputedStyle(at.calDom).width) + 15; // 我也不知道为什么加这个数
+                let width = parseInt(getComputedStyle(at.calDom).width) + 17; // 我也不知道为什么加这个数
                 inputArea.dom.style.textIndent = width + 'px';
             } else {
                 console.warn(`初始化@数据失败：无法找到${this.username}的弹幕`);
@@ -153,9 +153,10 @@
             textarea.after(inputArea.bgDom);
 
             // 输入框
-            GM_addStyle("#liveDanmuInputArea{padding:.2rem .4rem;z-index:1;position:relative;background-color:transparent;resize:none;overflow: auto;}");
+            GM_addStyle("#liveDanmuInputArea{padding:.2rem .4rem;z-index:1;position:relative;background-color:transparent;resize:none;overflow: auto;scrollbar-width: none;}");
             GM_addStyle(".f-word{background-color:var(--Ly4)}.fire-word{background-color:var(--Or5)}");
-            GM_addStyle("#liveDanmuInputArea.default{text-indent:.5rem;padding:.2rem 0}.at #liveDanmuInputArea.default{padding:.2rem 0.5rem;}");
+            GM_addStyle("#liveDanmuInputArea.default{text-indent:.5rem;padding:.2rem 0 .2rem .5rem}.at #liveDanmuInputArea.default{padding:.2rem 0.5rem;}");
+            GM_addStyle(".chat-input-ctnr.chat-input-focus{height:118px;padding:0}");
             // 用input配合一个div背景。如果用contentEditable来搞，容易搞坏光标定位和编辑栈，已放弃
             inputArea.dom = textarea.cloneNode();
             inputArea.dom.id = "liveDanmuInputArea";
@@ -209,7 +210,7 @@
                     }
                 }
             });
-            let sendBtn = document.querySelector(".bottom-actions .right-action button");
+            let sendBtn = document.querySelector(".chat-input-ctnr .send-btn");
             if (sendBtn) {
                 sendBtn.addEventListener("click", (e) => {
                     dealDanmu(inputArea.dom);
