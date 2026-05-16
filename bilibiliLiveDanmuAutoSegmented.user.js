@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         b站直播聊天室弹幕发送增强
 // @namespace    http://tampermonkey.net/
-// @version      0.4.5
+// @version      0.4.6
 // @description  原理是分开发送。接管了发送框，会提示屏蔽词
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -212,7 +212,8 @@
             });
             let sendBtn = document.querySelector(".chat-input-ctnr .send-btn");
             if (sendBtn) {
-                sendBtn.addEventListener("click", (e) => {
+                sendBtn.addEventListener("mousedown", (e) => {
+                    e.preventDefault(); // 阻止 textarea 失焦
                     dealDanmu(inputArea.dom);
                 });
             }
