@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         b站直播徽章切换增强
-// @version      1.2.11
+// @version      1.2.12
 // @description  展示全部徽章，展示更多信息，更方便切换，可以自动切换徽章
 // @author       Pronax
 // @include      /https:\/\/live\.bilibili\.com\/(blanc\/)?\d+/
@@ -323,7 +323,7 @@ function main() {
             async getCurrentWear() {    // 获取当前佩戴粉丝牌
                 let res = await fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=1&page_size=1`, { credentials: 'include', });
                 let json = await res.json();
-                if (json.code == json.message) {
+                if ((json.code == json.message) || (json.code == 0 && json.message == "OK")) {
                     for (const item of json.data.special_list) {
                         if (item.superscript == null) {
                             this.currentlyWearing = item;
@@ -341,7 +341,7 @@ function main() {
                 }
                 let res = await fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/fans_medal_info?target_id=${uid}`, { credentials: 'include', });
                 let json = await res.json();
-                if (json.code == json.message) {
+                if ((json.code == json.message) || (json.code == 0 && json.message == "OK")) {
                     // 仅在获取当前房间信息时赋值
                     if (muid == uid) {
                         this.fansMedalInfo = json.data;
@@ -362,7 +362,7 @@ function main() {
                     fetch(`https://api.live.bilibili.com/xlive/app-ucenter/v1/fansMedal/panel?page=${page}&page_size=50&target_id=${uid}`, { credentials: 'include', })
                         .then(res => res.json())
                         .then(json => {
-                            if (json.code == json.message) {
+                            if ((json.code == json.message) || (json.code == 0 && json.message == "OK")) {
                                 /* 
                                     刷新当前佩戴的徽章
                                     special_list的内容不会超过3条，所以两次循环无所谓
