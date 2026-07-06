@@ -354,7 +354,7 @@ function main() {
                     }
                     return json.data;
                 }
-                alert("徽章初始化失败：", json.message);
+                console.error("徽章初始化失败：", json.message);
             },
             async refreshMedalList(page = 1, assignMedal = true) {
                 let uid = await ROOM_INFO_API.getUid();
