@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         B站直播通知
-// @version      0.2.2
+// @version      0.2.3
 // @description  需要有至少一个b站页面开在后台，通常提醒延迟不超过3分钟
 // @author       Pronax
 // @match        https://*.bilibili.com/*
@@ -32,13 +32,14 @@
     const LIST_EXPIRE_TIME = CONSUMER_LOOP_TERM * 10.0;
     const CONSUMER_EXPIRE_TIME = CONSUMER_LOOP_TERM * 1.5;
 
-    var notificationList = [];
-    var master = GM_getValue("master");
+    let notificationList = [];
+    let master = GM_getValue("master");
     // list存的都是uid
-    var onlineList = getList("onlineList");
-    var blockList = getList("blockList");
+    let onlineList = getList("onlineList");
+    let blockList = getList("blockList");
+    let tempSet = new Set();
 
-    var temp_variable = {
+    let temp_variable = {
         timeout: null,
         interval: null
     };
@@ -104,7 +105,11 @@
         changeTabTitle();
         if (master.name == TAB_DETAIL.name) {
             heartbeat();
-            await checkLiveList(isInit);
+            let page = 1;
+            while (await checkLiveList(page++, isInit)) {
+                await sleep(100);
+                // alert("直播通知-翻页");
+            }
             GM_setValue("sync", TAB_DETAIL.name);
         } else {
             clearCountdown(temp_variable.interval);
@@ -114,39 +119,43 @@
         }
     }
 
-    async function checkLiveList(isInit) {
+    async function checkLiveList(page = 1, isInit) {
         return new Promise((r, j) => {
-            fetch(`https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/w_live_users?size=100`, {
+            fetch(`https://api.live.bilibili.com/xlive/web-ucenter/user/following?page=${page}&page_size=29`, {
                 credentials: 'include'
             })
                 .then(r => r.json())
                 .then(result => {
-                    if (result.code == result.message) {
-                        if (!result.data.items) { return; }
-                        let newList = new Set();
-                        // let count = 0;
-                        for (let item of result.data.items) {
+                    if ((result.code == result.message) || (result.code == 0 && result.message == "OK")) {
+                        if (!result.data.list) { return; }
+                        let hasNextPage = result.data.list[result.data.list.length - 1].live_status == 1;
+                        result.data.list = result.data.list.filter(item => item.live_status == 1);
+                        for (let item of result.data.list) {
                             if (!(isInit || onlineList.has(item.uid) || blockList.has(item.uid))) {
                                 console.log("发送" + item.uname + "的开播通知");
-                                // setTimeout(() => {
-                                notify(item.uid, item.uname, item.title, item.face, item.link);
-                                // }, NOTIFACTION_TIMEOUT * Math.floor(count++ / 3));
+                                notify(item.uid, item.uname, item.title, item.face, `https://live.bilibili.com/${item.roomid}`);
                             }
-                            newList.add(item.uid);
+                            tempSet.add(item.uid);
                         }
-                        onlineList = newList;
-                        blockList.clear();
-                        saveList();
-                        bordercast({
-                            type: "sync",
-                            target: null,
-                            variable: null,
-                            action: null,
-                            value: null
-                        });
-                        r(true);
+                        if (!hasNextPage) {
+                            onlineList = tempSet;
+                            blockList.clear();
+                            saveList();
+                            bordercast({
+                                type: "sync",
+                                target: null,
+                                variable: null,
+                                action: null,
+                                value: null
+                            });
+                            tempSet.clear();
+                        }
+                        r(hasNextPage);
                     } else {
                         j(result);
+                        if (result.code == -101) {
+                            clearInterval(temp_variable.interval);
+                        }
                         alert("在线列表获取失败：" + result.message);
                     }
                 });
